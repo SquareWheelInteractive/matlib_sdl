@@ -1,0 +1,20 @@
+[
+  {
+    "file": "main.c",
+    "arguments": [
+      "/usr/bin/gcc",
+      "main.c",
+      "-I."
+    ],
+    "directory": "/home/mateo/Desktop/sdl_test"
+  },
+  {
+    "file": "glad/glad.c",
+    "arguments": [
+      "/usr/bin/gcc",
+      "glad/glad.c",
+      "-I."
+    ],
+    "directory": "/home/mateo/Desktop/sdl_test"
+  }
+]
