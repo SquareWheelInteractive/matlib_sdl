@@ -1,6 +1,7 @@
 #pragma once
 #include "../cglm/struct.h"// IWYU pragma: keep
-#include "skeletal_animation.h"
+#include "external/cgltf.h"
+#include "skeleton.h"
 
 #define DEG2RAD 0.0174533f
 #define RAD2DEG 57.2958f
@@ -13,7 +14,9 @@
 typedef enum{
     ATTRIB_POSITION   = 0x0,
     ATTRIB_TEX_COORDS = 0x1,
-    ATTRIB_NORMAL     = 0x2
+    ATTRIB_NORMAL     = 0x2,
+    ATTRIB_BONE_IDS   = 0x3,
+    ATTRIB_WEIGHTS    = 0x4
 }VertexAttribLocs;
 
 typedef enum{
@@ -27,6 +30,11 @@ typedef struct{
     float b;
     float a;
 } Color;
+typedef struct{
+    vec3s translation;
+    versors rotation;
+    vec3s scale;
+} Transform;
 
 typedef struct{
     vec3s target;
@@ -45,21 +53,16 @@ typedef struct{
     int channels;
 } Texture;
 
-typedef struct{
-    vec3s translation;
-    versors rotation;
-    vec3s scale;
-} Transform;
-
-
 typedef struct {
     unsigned int vao;
-    unsigned int vbo_ids[3];
+    unsigned int vbo_ids[5];
+
     float* positions;
     float* normals;
     float* tex_coords;
-    uint8_t bone_ids[4];      // up to 4 influences
-    float bone_weights[4];
+    uint8_t* bone_ids;
+    float* weights;
+
     unsigned int vertex_count;
 
     unsigned int* indices;
@@ -71,6 +74,7 @@ typedef struct{
     Texture texture;
     unsigned int shader;
     Mesh mesh;
+
     Skeleton skeleton;
 } Model;
 
@@ -91,6 +95,7 @@ void update_camera(Camera* camera, float sens, float move_speed, float dt);
 float get_frame_time();
 bool is_key_pressed_once(unsigned int scan_code);
 Mesh load_mesh_obj(const char* path);
-Mesh load_mesh_gltf(const char* filename);
+Mesh load_mesh_gltf(const char* filename, cgltf_data* data);
 Model load_model(const char* file_name);
 void free_model(Model* model);
+void update_model_animation(Model* model, int anim_index, float dt);

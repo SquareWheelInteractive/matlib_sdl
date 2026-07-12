@@ -9,6 +9,7 @@
 #include "external/fast_obj.h"
 #define CGLTF_IMPLEMENTATION
 #include "external/cgltf.h"
+#include "skeleton.h"
 
 /* - - - Window related - - - */
 
@@ -80,7 +81,7 @@ void close_window(){
 
 /* - - - Model related - - - */
 
-int is_file_extension(const char* filename, const char* extension) {
+static int is_file_extension(const char* filename, const char* extension) {
     size_t file_len = strlen(filename);
     size_t ext_len = strlen(extension);
 
@@ -89,21 +90,10 @@ int is_file_extension(const char* filename, const char* extension) {
 
     return strcmp(filename + file_len - ext_len, extension) == 0;
 }
-Model load_model(const char* file_name){
-    Model model_out = {0};
-    model_out.transform = glms_mat4_identity();
-    model_out.shader = 0;
-    model_out.texture = (Texture){0};
 
-    if(is_file_extension(file_name , ".obj"))
-        model_out.mesh = load_mesh_obj(file_name);
-    if(is_file_extension(file_name, ".glb") || is_file_extension(file_name, ".gltf"))
-        model_out.mesh = load_mesh_gltf(file_name);
-
-    return model_out;
-}
 
 void draw_model(Model* model, Camera* cam, Color ambient){
+    if(!model )return;
     glad_glUseProgram(model->shader);
 
     unsigned int model_loc   = glad_glGetUniformLocation(model->shader, "model");
@@ -131,88 +121,100 @@ void draw_model(Model* model, Camera* cam, Color ambient){
 }
 
 void free_model(Model* model){
+    if(!model)return;
+    skeleton_free(&model->skeleton);
     free_mesh(&model->mesh);
 }
 
 /* - - - Mesh related - - - */
 
-
-Mesh load_mesh_gltf(const char* filename) {
+Mesh load_mesh_gltf(const char* filename, cgltf_data* data) {
     Mesh mesh_out = {0};
-    mesh_out.positions  = NULL;
-    mesh_out.normals    = NULL;
+    mesh_out.positions = NULL;
+    mesh_out.normals = NULL;
     mesh_out.tex_coords = NULL;
-
-    cgltf_options options = {0};
-    cgltf_data* data = NULL;
+    mesh_out.bone_ids= NULL;
+    mesh_out.weights = NULL;
+        
+    // Safety check: Ensure we actually have at least one mesh and one primitive
+    if (data->meshes_count > 0 && data->meshes[0].primitives_count > 0) {
+        
+        // For now, we only grab the first primitive of the first mesh
+        cgltf_primitive* primitive = &data->meshes[0].primitives[0];
+   
+        for (cgltf_size k = 0; k < primitive->attributes_count; ++k) {
+            cgltf_attribute* attr = &primitive->attributes[k];
+            cgltf_accessor* accessor = attr->data;
     
-    cgltf_result result = cgltf_parse_file(&options, filename, &data);
+            cgltf_size float_count = cgltf_accessor_unpack_floats(accessor, NULL, 0);
+            float* num_buffer = (float*)malloc(sizeof(float) * float_count);
+            cgltf_accessor_unpack_floats(accessor, num_buffer, float_count);
     
-    if (result == cgltf_result_success) {
-        cgltf_load_buffers(&options, data, filename);
-        
-        // Safety check: Ensure we actually have at least one mesh and one primitive
-        if (data->meshes_count > 0 && data->meshes[0].primitives_count > 0) {
-            
-            // For now, we only grab the first primitive of the first mesh
-            cgltf_primitive* primitive = &data->meshes[0].primitives[0];
-       
-            for (cgltf_size k = 0; k < primitive->attributes_count; ++k) {
-                cgltf_attribute* attr = &primitive->attributes[k];
-                cgltf_accessor* accessor = attr->data;
-        
-                cgltf_size float_count = cgltf_accessor_unpack_floats(accessor, NULL, 0);
-                float* num_buffer = (float*)malloc(sizeof(float) * float_count);
-                cgltf_accessor_unpack_floats(accessor, num_buffer, float_count);
-        
-                int num_components = cgltf_num_components(accessor->type);
+            int num_components = cgltf_num_components(accessor->type);
 
-                if (attr->type == cgltf_attribute_type_position) {
-                    mesh_out.positions = malloc(accessor->count * 3 * sizeof(float));
-                    mesh_out.vertex_count = accessor->count;
-                    
-                    for (cgltf_size v = 0; v < accessor->count; ++v) {
-                        mesh_out.positions[v * 3 + 0] = num_buffer[v * num_components + 0];
-                        mesh_out.positions[v * 3 + 1] = num_buffer[v * num_components + 1];
-                        mesh_out.positions[v * 3 + 2] = num_buffer[v * num_components + 2];
-                    }
-                } 
-                else if (attr->type == cgltf_attribute_type_normal) {
-                    mesh_out.normals = malloc(accessor->count * 3 * sizeof(float));
-                    
-                    for (cgltf_size v = 0; v < accessor->count; ++v) {
-                        mesh_out.normals[v * 3 + 0] = num_buffer[v * num_components + 0];
-                        mesh_out.normals[v * 3 + 1] = num_buffer[v * num_components + 1];
-                        mesh_out.normals[v * 3 + 2] = num_buffer[v * num_components + 2];
-                    }
-                } 
-                else if (attr->type == cgltf_attribute_type_texcoord) {
-                    mesh_out.tex_coords = malloc(accessor->count * 2 * sizeof(float));
-                    
-                    for (cgltf_size v = 0; v < accessor->count; ++v) {
-                        mesh_out.tex_coords[v * 2 + 0] = num_buffer[v * num_components + 0];
-                        // Note: "1.0 - ..." to flip Y coord, OpenGL expect Y on bottom left
-                        mesh_out.tex_coords[v * 2 + 1] = 1.0f - num_buffer[v * num_components + 1]; 
-                    }
+            if (attr->type == cgltf_attribute_type_position) {
+                mesh_out.positions = malloc(accessor->count * 3 * sizeof(float));
+                mesh_out.vertex_count = accessor->count;
+                
+                for (cgltf_size v = 0; v < accessor->count; ++v) {
+                    mesh_out.positions[v * 3 + 0] = num_buffer[v * num_components + 0];
+                    mesh_out.positions[v * 3 + 1] = num_buffer[v * num_components + 1];
+                    mesh_out.positions[v * 3 + 2] = num_buffer[v * num_components + 2];
                 }
-                free(num_buffer);
+            } 
+            else if (attr->type == cgltf_attribute_type_normal) {
+                mesh_out.normals = malloc(accessor->count * 3 * sizeof(float));
+                
+                for (cgltf_size v = 0; v < accessor->count; ++v) {
+                    mesh_out.normals[v * 3 + 0] = num_buffer[v * num_components + 0];
+                    mesh_out.normals[v * 3 + 1] = num_buffer[v * num_components + 1];
+                    mesh_out.normals[v * 3 + 2] = num_buffer[v * num_components + 2];
+                }
+            } 
+            else if (attr->type == cgltf_attribute_type_texcoord) {
+                mesh_out.tex_coords = malloc(accessor->count * 2 * sizeof(float));
+                
+                for (cgltf_size v = 0; v < accessor->count; ++v) {
+                    mesh_out.tex_coords[v * 2 + 0] = num_buffer[v * num_components + 0];
+                    // Note: "1.0 - ..." to flip Y coord, OpenGL expect Y on bottom left
+                    mesh_out.tex_coords[v * 2 + 1] = 1.0f - num_buffer[v * num_components + 1]; 
+                }
             }
-
-            if (primitive->indices) {
-                mesh_out.index_count = primitive->indices->count;
-                mesh_out.indices = malloc(mesh_out.index_count * sizeof(uint32_t));
-                for (cgltf_size i = 0; i < mesh_out.index_count; ++i) {
-                    mesh_out.indices[i] = (uint32_t)cgltf_accessor_read_index(primitive->indices, i);
+            else if (attr->type == cgltf_attribute_type_joints) {
+                mesh_out.bone_ids= malloc(accessor->count * 4 * sizeof(uint8_t));
+                // Unpack and copy data into mesh_out.joint_ids (4 components per vertex)
+                for (cgltf_size v = 0; v < accessor->count; ++v) {
+                    mesh_out.bone_ids[v * 4 + 0] = (unsigned int)num_buffer[v * num_components + 0];
+                    mesh_out.bone_ids[v * 4 + 1] = (unsigned int)num_buffer[v * num_components + 1];
+                    mesh_out.bone_ids[v * 4 + 2] = (unsigned int)num_buffer[v * num_components + 2];
+                    mesh_out.bone_ids[v * 4 + 3] = (unsigned int)num_buffer[v * num_components + 3];
                 }
+            }
+            else if (attr->type == cgltf_attribute_type_weights) {
+                mesh_out.weights = malloc(accessor->count * 4 * sizeof(float));
+                // Unpack and copy data into mesh_out.weights (4 components per vertex)
+                for (cgltf_size v = 0; v < accessor->count; ++v) {
+                    mesh_out.weights[v * 4 + 0] = num_buffer[v * num_components + 0];
+                    mesh_out.weights[v * 4 + 1] = num_buffer[v * num_components + 1];
+                    mesh_out.weights[v * 4 + 2] = num_buffer[v * num_components + 2];
+                    mesh_out.weights[v * 4 + 3] = num_buffer[v * num_components + 3];
+                }
+            }
+            free(num_buffer);
+        }
+
+        if (primitive->indices) {
+            mesh_out.index_count = primitive->indices->count;
+            mesh_out.indices = malloc(mesh_out.index_count * sizeof(uint32_t));
+            for (cgltf_size i = 0; i < mesh_out.index_count; ++i) {
+                mesh_out.indices[i] = (uint32_t)cgltf_accessor_read_index(primitive->indices, i);
             }
         }
-        
-        cgltf_free(data);
     }
     glad_glGenVertexArrays(1, &mesh_out.vao);
     glad_glBindVertexArray(mesh_out.vao);
 
-    glad_glGenBuffers(3, mesh_out.vbo_ids);
+    glad_glGenBuffers(5, mesh_out.vbo_ids);
 
     glad_glBindBuffer(GL_ARRAY_BUFFER, mesh_out.vbo_ids[ATTRIB_POSITION]);
     glad_glBufferData(GL_ARRAY_BUFFER, mesh_out.vertex_count * 3 * sizeof(float), mesh_out.positions, GL_STATIC_DRAW);
@@ -229,15 +231,15 @@ Mesh load_mesh_gltf(const char* filename) {
     glad_glVertexAttribPointer(ATTRIB_TEX_COORDS, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
     glad_glEnableVertexAttribArray(ATTRIB_TEX_COORDS);
 
-    // glad_glBindBuffer(GL_ARRAY_BUFFER, mesh_out.vbo_ids[3]);
-    // glad_glBufferData(GL_ARRAY_BUFFER, mesh_out.vertex_count * 4 * sizeof(int), mesh_out.bones_id, GL_STATIC_DRAW);
-    // glad_glVertexAttribIPointer(3, 4, GL_UNSIGNED_INT, 4 * sizeof(unsigned int), (void*)0);
-    // glad_glEnableVertexAttribArray(3);
+    glad_glBindBuffer(GL_ARRAY_BUFFER, mesh_out.vbo_ids[ATTRIB_BONE_IDS]);
+    glad_glBufferData(GL_ARRAY_BUFFER, mesh_out.vertex_count * 4 * sizeof(int), mesh_out.bone_ids, GL_STATIC_DRAW);
+    glad_glVertexAttribIPointer(ATTRIB_BONE_IDS, 4, GL_UNSIGNED_BYTE, 4 * sizeof(uint8_t), (void*)0);
+    glad_glEnableVertexAttribArray(ATTRIB_BONE_IDS);
 
-    // glad_glBindBuffer(GL_ARRAY_BUFFER, mesh_out.vbo_ids[4]);
-    // glad_glBufferData(GL_ARRAY_BUFFER, mesh_out.vertex_count * 4 * sizeof(float), mesh_out.weights, GL_STATIC_DRAW);
-    // glad_glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    // glad_glEnableVertexAttribArray(4);
+    glad_glBindBuffer(GL_ARRAY_BUFFER, mesh_out.vbo_ids[ATTRIB_WEIGHTS]);
+    glad_glBufferData(GL_ARRAY_BUFFER, mesh_out.vertex_count * 4 * sizeof(float), mesh_out.weights, GL_STATIC_DRAW);
+    glad_glVertexAttribPointer(ATTRIB_WEIGHTS, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glad_glEnableVertexAttribArray(ATTRIB_WEIGHTS);
 
     unsigned int ebo;
     glad_glGenBuffers(1, &ebo);
@@ -250,11 +252,40 @@ Mesh load_mesh_gltf(const char* filename) {
 
     return mesh_out;
 }
+
+Model load_model(const char* file_name){
+    Model model_out = {0};
+    model_out.transform = glms_mat4_identity();
+    model_out.shader = 0;
+    model_out.texture = (Texture){0};
+    model_out.skeleton = (Skeleton){0};
+
+    if(is_file_extension(file_name , ".obj"))
+        model_out.mesh = load_mesh_obj(file_name);
+    if(is_file_extension(file_name, ".glb") || is_file_extension(file_name, ".gltf")){
+        cgltf_options options = {0};
+        cgltf_data* data = NULL;
+    
+        cgltf_result result = cgltf_parse_file(&options, file_name, &data);
+    
+        if (result == cgltf_result_success) {
+            cgltf_load_buffers(&options, data, file_name);
+            model_out.mesh = load_mesh_gltf(file_name, data); // mesh loading
+            skeleton_load(&model_out.skeleton, data, 0);
+
+            cgltf_free(data);
+        }
+    }
+
+    return model_out;
+}
 Mesh load_mesh_obj(const char* path){
     Mesh mesh_out = {0};
-    mesh_out.positions  = NULL;
-    mesh_out.normals    = NULL;
-    mesh_out.tex_coords = NULL;
+    mesh_out.positions = NULL;
+    mesh_out.normals= NULL;
+    mesh_out.tex_coords= NULL;
+    mesh_out.bone_ids= NULL;
+    mesh_out.weights= NULL;
 
     fastObjMesh* mesh = fast_obj_read(path);
     assert(mesh);
@@ -330,8 +361,6 @@ Mesh load_mesh_obj(const char* path){
     return mesh_out;
 }
 
-
-
 void free_mesh(Mesh* mesh){
     if(mesh->positions != NULL)
         free(mesh->positions);
@@ -341,11 +370,15 @@ void free_mesh(Mesh* mesh){
         free(mesh->tex_coords);
     if(mesh->indices != NULL)
         free(mesh->indices);
+    if(mesh->bone_ids != NULL)
+        free(mesh->bone_ids);
+    if(mesh->weights != NULL)
+        free(mesh->weights);
 }
 
 /* - - - Input related - - - */
 
-bool key_is_pressed[128];
+static bool key_is_pressed[128];
 bool is_key_pressed_once(SDL_Scancode scan_code){
     if(global.input.event_down && key_is_pressed[scan_code] == false){
         if(global.input.scan_code == scan_code){
@@ -496,10 +529,8 @@ Texture load_texture(const char* path){
     return texture;
 }
 
-
-
-float pitch = 0, yaw = -90;
-bool cursor_captured = false;
+static float pitch = 0, yaw = -90;
+static bool cursor_captured = false;
 void update_camera(Camera* camera, float sens, float move_speed, float dt){
     SDL_SetWindowRelativeMouseMode(global.window_context.window, cursor_captured);
     if(is_key_pressed_once(SDL_SCANCODE_ESCAPE)){
@@ -552,3 +583,25 @@ float get_frame_time(){
 }
 
 
+void update_model_animation(Model* model, int anim_index, float dt){
+    if(anim_index >= 0)
+        anim_index %= model->skeleton.clip_count; // make index not pass clip count
+
+    model->skeleton.anim_state.clip_index = anim_index;
+    float t = skeleton_advance(&model->skeleton, dt);
+    skeleton_update(&model->skeleton, t);
+
+    glad_glUseProgram(model->shader);
+
+    int loc = glad_glGetUniformLocation(model->shader, "u_bone_matrices");
+
+    if (loc != -1) {
+        glad_glUniformMatrix4fv(
+            loc,
+            model->skeleton.bone_count,
+            GL_FALSE,
+            (float *)model->skeleton.final_matrices);
+    }
+
+    glad_glUseProgram(0);
+}
