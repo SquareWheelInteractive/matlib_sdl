@@ -60,10 +60,9 @@ typedef struct {
     mat4s      final_matrices[MAX_BONES];
 } Skeleton;
 
-void skeleton_free(Skeleton* sk);
-bool skeleton_play(Skeleton* sk, const char* clip_name, int loop);
+void skeleton_load(Skeleton* sk, cgltf_data* data, unsigned short skin_index);
 float skeleton_advance(Skeleton* sk, float dt);
 void skeleton_update(Skeleton* sk, float time);
-void skeleton_free(Skeleton* sk);
-void skeleton_load(Skeleton* sk, cgltf_data* data, unsigned short skin_index);
+bool skeleton_play(Skeleton* sk, const char* clip_name, int loop);
 bool skeleton_play_index(Skeleton* sk, int index, int loop);
+void skeleton_free(Skeleton* sk);

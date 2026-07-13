@@ -7,7 +7,7 @@
 #define RAD2DEG 57.2958f
 
 #define SKY_BLUE (Color){0.45f, 0.65f, 0.86f, 1.0f}
-#define BLACK (Color){0.0f, 0.0f, 0.0f, 1.0f}
+#define BLACK (Color){0.1f, 0.1f, 0.1f, 1.0f}
 #define WHITE (Color){0.92f, 0.92f, 0.92f, 1.0f}
 #define GRAY (Color){0.25f, 0.25f, 0.25f, 1.0f}
 
@@ -73,7 +73,8 @@ typedef struct{
     mat4s transform;
     Texture texture;
     unsigned int shader;
-    Mesh mesh;
+    Mesh* meshes;
+    unsigned int mesh_count;
 
     Skeleton skeleton;
 } Model;
@@ -95,7 +96,7 @@ void update_camera(Camera* camera, float sens, float move_speed, float dt);
 float get_frame_time();
 bool is_key_pressed_once(unsigned int scan_code);
 Mesh load_mesh_obj(const char* path);
-Mesh load_mesh_gltf(const char* filename, cgltf_data* data);
+Mesh load_mesh_gltf(const char* filename, cgltf_data* data, unsigned int primitive_index);
 Model load_model(const char* file_name);
 void free_model(Model* model);
 void update_model_animation(Model* model, int anim_index, float dt);

@@ -93,7 +93,8 @@ static int is_file_extension(const char* filename, const char* extension) {
 
 
 void draw_model(Model* model, Camera* cam, Color ambient){
-    if(!model )return;
+    if(!model || !cam || !model->meshes) return;
+
     glad_glUseProgram(model->shader);
 
     unsigned int model_loc   = glad_glGetUniformLocation(model->shader, "model");
@@ -106,29 +107,48 @@ void draw_model(Model* model, Camera* cam, Color ambient){
     glad_glUniformMatrix4fv(proj_loc , 1, GL_FALSE, (const float*)cam->proj_matrix.raw);
     glad_glUniform4f(ambient_loc, ambient.r, ambient.g, ambient.b, ambient.a);
 
-    if(model->texture.id > 0){
+    if(model->texture.id > 0)
         glad_glBindTexture(GL_TEXTURE_2D, model->texture.id);
-    }
-    glad_glBindVertexArray(model->mesh.vao);
-    if(model->mesh.index_count > 0)
-        glad_glDrawElements(GL_TRIANGLES, model->mesh.index_count, GL_UNSIGNED_INT, 0);
-    else
-        glad_glDrawArrays(GL_TRIANGLES, 0, model->mesh.vertex_count);
 
-    glad_glBindVertexArray(0);
+    for (size_t i = 0; i < model->mesh_count; i++) {
+        glad_glBindVertexArray(model->meshes[i].vao);
+        if(model->meshes[i].index_count > 0)
+            glad_glDrawElements(GL_TRIANGLES, model->meshes[i].index_count, GL_UNSIGNED_INT, 0);
+        else
+            glad_glDrawArrays(GL_TRIANGLES, 0, model->meshes[i].vertex_count);
+
+        glad_glBindVertexArray(0);
+    }
     glad_glBindTexture(GL_TEXTURE_2D, 0);
     glad_glUseProgram(0);
 }
 
 void free_model(Model* model){
     if(!model)return;
+    for (size_t i = 0; i< model->mesh_count; i++) {
+        free_mesh(&model->meshes[i]);
+    }
+
+    if(model->meshes != NULL)
+        free(model->meshes);
+
     skeleton_free(&model->skeleton);
-    free_mesh(&model->mesh);
 }
 
 /* - - - Mesh related - - - */
+Mesh* load_meshes_gltf(const char* filename, cgltf_data* data, unsigned int* mesh_cont){
+    *mesh_cont = data->meshes[0].primitives_count;
+    
+    Mesh* meshes_out = malloc(sizeof(Mesh) * *mesh_cont);
 
-Mesh load_mesh_gltf(const char* filename, cgltf_data* data) {
+    for (size_t i = 0 ; i < *mesh_cont; i++) {
+        meshes_out[i] = load_mesh_gltf(filename, data, i);
+    }
+
+    return meshes_out;
+}
+
+Mesh load_mesh_gltf(const char* filename, cgltf_data* data, unsigned int primitive_index) {
     Mesh mesh_out = {0};
     mesh_out.positions = NULL;
     mesh_out.normals = NULL;
@@ -140,11 +160,12 @@ Mesh load_mesh_gltf(const char* filename, cgltf_data* data) {
     if (data->meshes_count > 0 && data->meshes[0].primitives_count > 0) {
         
         // For now, we only grab the first primitive of the first mesh
-        cgltf_primitive* primitive = &data->meshes[0].primitives[0];
+        cgltf_primitive* primitive = &data->meshes[0].primitives[primitive_index];
    
         for (cgltf_size k = 0; k < primitive->attributes_count; ++k) {
             cgltf_attribute* attr = &primitive->attributes[k];
             cgltf_accessor* accessor = attr->data;
+                        
     
             cgltf_size float_count = cgltf_accessor_unpack_floats(accessor, NULL, 0);
             float* num_buffer = (float*)malloc(sizeof(float) * float_count);
@@ -259,9 +280,14 @@ Model load_model(const char* file_name){
     model_out.shader = 0;
     model_out.texture = (Texture){0};
     model_out.skeleton = (Skeleton){0};
+    model_out.meshes = NULL;
+    model_out.mesh_count = 0;
 
-    if(is_file_extension(file_name , ".obj"))
-        model_out.mesh = load_mesh_obj(file_name);
+    if(is_file_extension(file_name , ".obj")){
+        model_out.meshes = malloc(sizeof(Model));
+        model_out.mesh_count = 1;
+        model_out.meshes[0] = load_mesh_obj(file_name);
+    }
     if(is_file_extension(file_name, ".glb") || is_file_extension(file_name, ".gltf")){
         cgltf_options options = {0};
         cgltf_data* data = NULL;
@@ -270,7 +296,7 @@ Model load_model(const char* file_name){
     
         if (result == cgltf_result_success) {
             cgltf_load_buffers(&options, data, file_name);
-            model_out.mesh = load_mesh_gltf(file_name, data); // mesh loading
+            model_out.meshes = load_meshes_gltf(file_name, data, &model_out.mesh_count); // mesh loading
             skeleton_load(&model_out.skeleton, data, 0);
 
             cgltf_free(data);
@@ -582,7 +608,9 @@ float get_frame_time(){
     return delta;
 }
 
-
+/* ----------------------------------------------------------------------------------------
+    Animates model skeleton, calculates final bone matrices and upload them to GPU 
+   ----------------------------------------------------------------------------------------*/
 void update_model_animation(Model* model, int anim_index, float dt){
     if(anim_index >= 0)
         anim_index %= model->skeleton.clip_count; // make index not pass clip count

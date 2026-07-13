@@ -25,6 +25,7 @@ int main() {
     Model man = load_model("./resources/CesiumMan.glb");
     man.shader = skinning_shader;
     man.transform = glms_translate_make((vec3s){0,0,3});
+    man.texture = load_texture("./resources/CesiumMan_img0.jpg");
 
     int anim_index = 0;
     //main loop
@@ -40,10 +41,10 @@ int main() {
         update_model_animation(&man, anim_index, dt);
 
         begin_drawing(&cam, shader);
-        clear_background(GRAY);
+        clear_background(BLACK);
 
         draw_model(&house, &cam, GRAY);
-        draw_model(&man, &cam, WHITE);
+        draw_model(&man, &cam, GRAY);
 
         end_drawing();
     }

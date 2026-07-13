@@ -10,10 +10,16 @@ static void sample_channel(const AnimChannel* ch, float t, float* out) {
     int comp  = (ch->type == CHANNEL_ROTATION) ? 4 : 3;
     int count = (int)ch->keyframe_count;
 
+    if(count <= 0 || ch->times == NULL || ch->values == NULL){
+        memset(out, 0, sizeof(float)*comp);
+        return;
+    }
+
     if (t <= ch->times[0]) { memcpy(out, ch->values, sizeof(float) * comp); return; }
     if (t >= ch->times[count - 1]) { memcpy(out, ch->values + (count-1)*comp, sizeof(float)*comp); return; }
 
     for (int i = 0; i < count - 1; i++) {
+        // check between which 2 keyframes t is
         if (t >= ch->times[i] && t < ch->times[i + 1]) {
             float range = ch->times[i + 1] - ch->times[i];
             float f     = (range > 0.0f) ? (t - ch->times[i]) / range : 0.0f;
@@ -45,10 +51,8 @@ static void sample_channel(const AnimChannel* ch, float t, float* out) {
 
 /* -----------------------------------------------------------------------
    Internal: local TRS matrix for bone[i] at time t in the current clip.
-   Starts from identity, then applies whichever channels target that bone.
    ----------------------------------------------------------------------- */
-static mat4s bone_local_matrix(const Skeleton* sk, uint32_t bone_idx,
-                                const AnimClip* clip, float t) {
+static mat4s bone_local_matrix(const Skeleton* sk, uint32_t bone_idx, const AnimClip* clip, float t) {
     vec3s   T = glms_vec3_zero();
     versors R = glms_quat_identity();
     vec3s   S = glms_vec3_one();
@@ -77,9 +81,6 @@ static mat4s bone_local_matrix(const Skeleton* sk, uint32_t bone_idx,
 }
 
 /* -----------------------------------------------------------------------
-   skeleton_update()
-
-   Call this once per frame (or whenever you want to advance the pose).
    Writes skeleton->final_matrices[], which you then upload to the shader.
 
    time   – current playback time in seconds (you manage looping / clamping
@@ -115,13 +116,8 @@ void skeleton_update(Skeleton* sk, float time) {
 }
 
 /* -----------------------------------------------------------------------
-   skeleton_advance()  [optional convenience]
-
    Advances playback by dt seconds and loops if needed.
    Returns the new time so you can pass it straight to skeleton_update().
-
-       float t = skeleton_advance(&model.skeleton, dt);
-       skeleton_update(&model.skeleton, t);
    ----------------------------------------------------------------------- */
 float skeleton_advance(Skeleton* sk, float dt) {
     if (sk->anim_state.clip_index < 0 || sk->anim_state.clip_index >= sk->clip_count) return 0.0f;
@@ -134,11 +130,7 @@ float skeleton_advance(Skeleton* sk, float dt) {
 }
 
 /* -----------------------------------------------------------------------
-   skeleton_play()
-
    Switch to a named clip by name.  Returns true on success, false if not found.
-
-       skeleton_play(&model.skeleton, "Walk", 1);
    ----------------------------------------------------------------------- */
 bool skeleton_play(Skeleton* sk, const char* clip_name, int loop) {
     for (uint32_t i = 0; i < sk->clip_count; i++) {
@@ -151,6 +143,9 @@ bool skeleton_play(Skeleton* sk, const char* clip_name, int loop) {
     }
     return false;   /* clip not found */
 }
+/* -----------------------------------------------------------------------
+   Switch to a named clip by index.  Returns true on success, false if not found.
+   ----------------------------------------------------------------------- */
 bool skeleton_play_index(Skeleton* sk, int index, int loop) {
     if (index < sk->clip_count) {
         sk->anim_state.clip_index = index;
@@ -165,11 +160,18 @@ bool skeleton_play_index(Skeleton* sk, int index, int loop) {
    skeleton_free()
    ----------------------------------------------------------------------- */
 void skeleton_free(Skeleton* sk) {
+    if(!sk) return;
+    
     for (uint32_t c = 0; c < sk->clip_count; c++) {
         AnimClip* clip = &sk->clips[c];
+
+        if(clip->channels == NULL) continue;
+
         for (uint32_t i = 0; i < clip->channel_count; i++) {
-            free(clip->channels[i].times);
-            free(clip->channels[i].values);
+            if(clip->channels[i].times != NULL)
+                free(clip->channels[i].times);
+            if(clip->channels[i].values != NULL)
+                free(clip->channels[i].values);
         }
         free(clip->channels);
     }
@@ -185,8 +187,6 @@ static int node_to_bone_index(cgltf_skin* skin, cgltf_node* node) {
 }
 
 /* -----------------------------------------------------------------------
-   skeleton_load()
-
    Fills sk->bones[], sk->nodes[], and all sk->clips[] from cgltf_data.
 
    skin_index  – which skin in data->skins[] to use (usually 0)
@@ -281,4 +281,3 @@ void skeleton_load(Skeleton* sk, cgltf_data* data, unsigned short skin_index) {
         sk->anim_state.time       = 0.0f;
     }
 }
-
