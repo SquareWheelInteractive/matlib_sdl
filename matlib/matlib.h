@@ -85,7 +85,6 @@ bool window_should_close();
 unsigned int create_shader_program(const char* vs, const char* fs);
 char* get_file_content(const char* fileName);
 void draw_model(Model* mesh, Camera* cam, Color ambient);
-void update_camera_matrix(Camera* cam, unsigned int shader_prog);
 void clear_background(Color color);
 void begin_drawing(Camera* cam, unsigned int shader);
 void end_drawing();

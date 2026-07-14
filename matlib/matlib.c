@@ -49,26 +49,46 @@ bool init_window(const char* app_name, int width, int height){
     glad_glEnable(GL_BLEND);
     glad_glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    if(!SDL_SetWindowResizable(global.window_context.window, true)){
+        SDL_Log("Setting window to resizable has failed: %s\n", SDL_GetError());
+        SDL_Quit();
+        return -1;
+    }
+
     return 1;
 }
 
+static void resize_window(Camera* cam){
+    if(global.window_context.has_resized){
+        glad_glViewport(0,0, global.window_context.screen_width, global.window_context.screen_height);
+        cam->proj_matrix = glms_perspective(cam->fovy * DEG2RAD, (float)global.window_context.screen_width / global.window_context.screen_height, 0.01f, 100.0f);
+    }
+}
+
 bool window_should_close(){
-    global.input.evenet_up = false;
-    global.input.event_down= false;
-    while (SDL_PollEvent(&global.event)) {
-        switch (global.event.type) {
+    global.input.is_event_down  = false;
+    global.input.is_evenet_up   = false;
+    global.window_context.has_resized = false;
+
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        switch (event.type) {
             case SDL_EVENT_QUIT:
                 return true;
                 break;
             case SDL_EVENT_KEY_DOWN:
-                global.input.event_down = true;
-                global.input.scan_code = global.event.key.scancode;
+                global.input.is_event_down = true;
+                global.input.scan_code = event.key.scancode;
                 break;
             case SDL_EVENT_KEY_UP:
-                global.input.evenet_up = true;
-                global.input.scan_code = global.event.key.scancode;
+                global.input.is_evenet_up = true;
+                global.input.scan_code = event.key.scancode;
                 break;
-                               
+            case SDL_EVENT_WINDOW_RESIZED:
+                global.window_context.screen_width = event.window.data1;
+                global.window_context.screen_height= event.window.data2;
+                global.window_context.has_resized = true;
+                break;
         }
     }
     return false;
@@ -406,13 +426,13 @@ void free_mesh(Mesh* mesh){
 
 static bool key_is_pressed[128];
 bool is_key_pressed_once(SDL_Scancode scan_code){
-    if(global.input.event_down && key_is_pressed[scan_code] == false){
+    if(global.input.is_event_down && key_is_pressed[scan_code] == false){
         if(global.input.scan_code == scan_code){
             key_is_pressed[scan_code] = true;
             return true;
         }
     }
-    if(global.input.evenet_up && key_is_pressed[scan_code] == true){
+    if(global.input.is_evenet_up && key_is_pressed[scan_code] == true){
         if(global.input.scan_code == scan_code){
             key_is_pressed[scan_code] = false;
             return false;
@@ -475,17 +495,20 @@ unsigned int create_shader_program(const char* vert_shader_path, const char* fra
     return shader_prog;
 }
 
-void update_camera_matrix(Camera* cam, unsigned int shader_prog){
-    glad_glUseProgram(shader_prog);
-    cam->view_matrix = glms_lookat(cam->position, cam->target, cam->up);
-}
 void clear_background(Color color){
     glad_glClearColor(color.r,color.g,color.b, color.a);
 }
+
+static void update_camera_matrix(Camera* cam, unsigned int shader_prog){
+    glad_glUseProgram(shader_prog);
+    cam->view_matrix = glms_lookat(cam->position, cam->target, cam->up);
+}
+
 void begin_drawing(Camera* cam, unsigned int shader){
     glad_glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     update_camera_matrix(cam, shader);
+    resize_window(cam);
 }
 void end_drawing(){
     SDL_GL_SwapWindow(global.window_context.window);
@@ -564,7 +587,11 @@ void update_camera(Camera* camera, float sens, float move_speed, float dt){
     }
 
     vec2s mouse_delta;
+    /* -- Getting mouse delta every frame to avoid camera snapping / jump when cursor is recaptured -- */
     SDL_GetRelativeMouseState(&mouse_delta.x, &mouse_delta.y);
+
+    if(!cursor_captured) return;
+
     yaw += mouse_delta.x * sens;
     pitch += -mouse_delta.y * sens;
     if(pitch > 89) pitch = 89;
@@ -599,7 +626,7 @@ void update_camera(Camera* camera, float sens, float move_speed, float dt){
     camera->target = glms_vec3_add(camera->position, target);
 }
 
-float last_time = 0;
+static float last_time = 0;
 float get_frame_time(){
     float curr_time = SDL_GetTicks() * 0.001;
 
@@ -612,9 +639,6 @@ float get_frame_time(){
     Animates model skeleton, calculates final bone matrices and upload them to GPU 
    ----------------------------------------------------------------------------------------*/
 void update_model_animation(Model* model, int anim_index, float dt){
-    if(anim_index >= 0)
-        anim_index %= model->skeleton.clip_count; // make index not pass clip count
-
     model->skeleton.anim_state.clip_index = anim_index;
     float t = skeleton_advance(&model->skeleton, dt);
     skeleton_update(&model->skeleton, t);
