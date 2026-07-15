@@ -22,6 +22,7 @@ bool init_window(const char* app_name, int width, int height){
         SDL_Log("SDL_Init failed: %s\n", SDL_GetError());
         return -1;
     }
+
     // Create window
     global.window_context.window = SDL_CreateWindow(app_name, width, height, SDL_WINDOW_OPENGL);
     if (!global.window_context.window) {
@@ -29,13 +30,14 @@ bool init_window(const char* app_name, int width, int height){
         SDL_Quit();
         return -1;
     }
-    SDL_GLContext context = SDL_GL_CreateContext(global.window_context.window);
-
-    // Enable vsync
-    if (!SDL_GL_SetSwapInterval(1)) {
-        SDL_Log("VSync failed: %s", SDL_GetError());
+    // Enable resizing
+    if(!SDL_SetWindowResizable(global.window_context.window, true)){
+        SDL_Log("Setting window to resizable has failed: %s\n", SDL_GetError());
+        SDL_Quit();
+        return -1;
     }
 
+    SDL_GLContext context = SDL_GL_CreateContext(global.window_context.window);
     if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
         SDL_Log("Failed to load OpenGL\n");
         return -1;
@@ -49,11 +51,11 @@ bool init_window(const char* app_name, int width, int height){
     glad_glEnable(GL_BLEND);
     glad_glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    if(!SDL_SetWindowResizable(global.window_context.window, true)){
-        SDL_Log("Setting window to resizable has failed: %s\n", SDL_GetError());
-        SDL_Quit();
-        return -1;
+    // Enable vsync
+    if (!SDL_GL_SetSwapInterval(1)) {
+        SDL_Log("VSync failed: %s", SDL_GetError());
     }
+
 
     return 1;
 }
@@ -61,7 +63,23 @@ bool init_window(const char* app_name, int width, int height){
 static void resize_window(Camera* cam){
     if(global.window_context.has_resized){
         glad_glViewport(0,0, global.window_context.screen_width, global.window_context.screen_height);
-        cam->proj_matrix = glms_perspective(cam->fovy * DEG2RAD, (float)global.window_context.screen_width / global.window_context.screen_height, 0.01f, 100.0f);
+        switch (cam->type) {
+            case CAMERA_PERSPECTIVE:
+                cam->proj_matrix = glms_perspective(cam->fovy * DEG2RAD, (float)global.window_context.screen_width / global.window_context.screen_height, 0.01f, 100.0f);
+                break;
+            case CAMERA_ORTHO:
+                ;float halfHeight = cam->zoom;
+                float halfWidth = cam->zoom * (float)global.window_context.screen_width / global.window_context.screen_height;;
+                cam->proj_matrix = glms_ortho(
+                    -halfWidth,
+                     halfWidth,
+                    -halfHeight,
+                     halfHeight,
+                    0.01f,
+                    100.0f
+                );
+                break;
+        }
     }
 }
 
@@ -114,21 +132,26 @@ static int is_file_extension(const char* filename, const char* extension) {
 
 void draw_model(Model* model, Camera* cam, Color ambient){
     if(!model || !cam || !model->meshes) return;
+    mat4s t = glms_translate_make(model->local_transform.translation);
+    mat4s r = glms_quat_mat4(model->local_transform.rotation);
+    mat4s s = glms_scale_make(model->local_transform.scale);
 
-    glad_glUseProgram(model->shader);
+    mat4s trs = glms_mat4_mul(t, glms_mat4_mul(r, s));
 
-    unsigned int model_loc   = glad_glGetUniformLocation(model->shader, "model");
-    unsigned int view_loc    = glad_glGetUniformLocation(model->shader, "view");
-    unsigned int proj_loc    = glad_glGetUniformLocation(model->shader, "projection");
-    unsigned int ambient_loc = glad_glGetUniformLocation(model->shader, "ambient");
+    glad_glUseProgram(model->material.shader);
 
-    glad_glUniformMatrix4fv(model_loc, 1, GL_FALSE, (const float*)model->transform.raw);
+    unsigned int model_loc   = glad_glGetUniformLocation(model->material.shader, "model");
+    unsigned int view_loc    = glad_glGetUniformLocation(model->material.shader, "view");
+    unsigned int proj_loc    = glad_glGetUniformLocation(model->material.shader, "projection");
+    unsigned int ambient_loc = glad_glGetUniformLocation(model->material.shader, "ambient");
+
+    glad_glUniformMatrix4fv(model_loc, 1, GL_FALSE, (const float*)trs.raw);
     glad_glUniformMatrix4fv(view_loc , 1, GL_FALSE, (const float*)cam->view_matrix.raw);
     glad_glUniformMatrix4fv(proj_loc , 1, GL_FALSE, (const float*)cam->proj_matrix.raw);
     glad_glUniform4f(ambient_loc, ambient.r, ambient.g, ambient.b, ambient.a);
 
-    if(model->texture.id > 0)
-        glad_glBindTexture(GL_TEXTURE_2D, model->texture.id);
+    if(model->material.albedo.id > 0)
+        glad_glBindTexture(GL_TEXTURE_2D, model->material.albedo.id);
 
     for (size_t i = 0; i < model->mesh_count; i++) {
         glad_glBindVertexArray(model->meshes[i].vao);
@@ -296,9 +319,11 @@ Mesh load_mesh_gltf(const char* filename, cgltf_data* data, unsigned int primiti
 
 Model load_model(const char* file_name){
     Model model_out = {0};
-    model_out.transform = glms_mat4_identity();
-    model_out.shader = 0;
-    model_out.texture = (Texture){0};
+    model_out.local_transform.translation = glms_vec3_zero();
+    model_out.local_transform.rotation    = glms_quat_identity();
+    model_out.local_transform.scale       = glms_vec3_one();
+    model_out.material.shader = 0;
+    model_out.material.albedo = (Texture){0};
     model_out.skeleton = (Skeleton){0};
     model_out.meshes = NULL;
     model_out.mesh_count = 0;
@@ -499,15 +524,14 @@ void clear_background(Color color){
     glad_glClearColor(color.r,color.g,color.b, color.a);
 }
 
-static void update_camera_matrix(Camera* cam, unsigned int shader_prog){
-    glad_glUseProgram(shader_prog);
+static void update_camera_matrix(Camera* cam){
     cam->view_matrix = glms_lookat(cam->position, cam->target, cam->up);
 }
 
-void begin_drawing(Camera* cam, unsigned int shader){
+void begin_drawing(Camera* cam){
     glad_glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    update_camera_matrix(cam, shader);
+    update_camera_matrix(cam);
     resize_window(cam);
 }
 void end_drawing(){
@@ -525,9 +549,11 @@ Camera create_camera(CameraProjectionType type){
     float aspect = (float)global.window_context.screen_width / global.window_context.screen_height;
     switch (type) {
         case CAMERA_PERSPECTIVE:
-            cam.proj_matrix = glms_perspective(cam.fovy * DEG2RAD, (float)global.window_context.screen_width / global.window_context.screen_height, 0.05f, 100.0f);
+            cam.type = CAMERA_PERSPECTIVE;
+            cam.proj_matrix = glms_perspective(cam.fovy * DEG2RAD, aspect, 0.05f, 100.0f);
             break;
         case CAMERA_ORTHO:
+            cam.type = CAMERA_ORTHO;
             cam.zoom = 5;
             float halfHeight = cam.zoom;
             float halfWidth = cam.zoom* aspect;
@@ -540,6 +566,9 @@ Camera create_camera(CameraProjectionType type){
                 0.01f,
                 100.0f
             );
+            break;
+        default:
+            printf("CAMERA CREATION ERROR: try using the correct enum values\n");
             break;
     }
 
@@ -643,9 +672,9 @@ void update_model_animation(Model* model, int anim_index, float dt){
     float t = skeleton_advance(&model->skeleton, dt);
     skeleton_update(&model->skeleton, t);
 
-    glad_glUseProgram(model->shader);
+    glad_glUseProgram(model->material.shader);
 
-    int loc = glad_glGetUniformLocation(model->shader, "u_bone_matrices");
+    int loc = glad_glGetUniformLocation(model->material.shader, "u_bone_matrices");
 
     if (loc != -1) {
         glad_glUniformMatrix4fv(

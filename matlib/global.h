@@ -18,4 +18,8 @@ typedef struct Global{
     Input input;
 } Global;
 
+/* --------------------------------------------------
+      'Global' struct need to be defined in the
+      main translation unit as a global variable
+   -------------------------------------------------- */
 extern Global global;

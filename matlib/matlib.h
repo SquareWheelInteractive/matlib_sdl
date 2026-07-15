@@ -37,6 +37,8 @@ typedef struct{
 } Transform;
 
 typedef struct{
+    CameraProjectionType type;
+
     vec3s target;
     vec3s position;
     vec3s up;
@@ -70,9 +72,15 @@ typedef struct {
 } Mesh;
 
 typedef struct{
-    mat4s transform;
-    Texture texture;
+    Texture albedo;
     unsigned int shader;
+} Material;
+
+typedef struct{
+    Transform local_transform;
+
+    Material material;
+
     Mesh* meshes;
     unsigned int mesh_count;
 
@@ -86,7 +94,7 @@ unsigned int create_shader_program(const char* vs, const char* fs);
 char* get_file_content(const char* fileName);
 void draw_model(Model* mesh, Camera* cam, Color ambient);
 void clear_background(Color color);
-void begin_drawing(Camera* cam, unsigned int shader);
+void begin_drawing(Camera* cam);
 void end_drawing();
 void free_mesh(Mesh* mesh);
 Camera create_camera(CameraProjectionType type);
