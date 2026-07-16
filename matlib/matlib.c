@@ -4,13 +4,14 @@
 #include "glad/glad.h"
 #include "global.h"
 #define STB_IMAGE_IMPLEMENTATION
-#include "external/stb_image.h"
+#include "stb_image.h"
 #define FAST_OBJ_IMPLEMENTATION
-#include "external/fast_obj.h"
+#include "fast_obj.h"
 #define CGLTF_IMPLEMENTATION
-#include "external/cgltf.h"
+#include "cgltf.h"
 #include "skeleton.h"
 
+Global global;
 /* - - - Window related - - - */
 
 bool init_window(const char* app_name, int width, int height){
@@ -132,11 +133,6 @@ static int is_file_extension(const char* filename, const char* extension) {
 
 void draw_model(Model* model, Camera* cam, Color ambient){
     if(!model || !cam || !model->meshes) return;
-    mat4s t = glms_translate_make(model->local_transform.translation);
-    mat4s r = glms_quat_mat4(model->local_transform.rotation);
-    mat4s s = glms_scale_make(model->local_transform.scale);
-
-    mat4s trs = glms_mat4_mul(t, glms_mat4_mul(r, s));
 
     glad_glUseProgram(model->material.shader);
 
@@ -145,7 +141,7 @@ void draw_model(Model* model, Camera* cam, Color ambient){
     unsigned int proj_loc    = glad_glGetUniformLocation(model->material.shader, "projection");
     unsigned int ambient_loc = glad_glGetUniformLocation(model->material.shader, "ambient");
 
-    glad_glUniformMatrix4fv(model_loc, 1, GL_FALSE, (const float*)trs.raw);
+    glad_glUniformMatrix4fv(model_loc, 1, GL_FALSE, (const float*)model->transform.raw);
     glad_glUniformMatrix4fv(view_loc , 1, GL_FALSE, (const float*)cam->view_matrix.raw);
     glad_glUniformMatrix4fv(proj_loc , 1, GL_FALSE, (const float*)cam->proj_matrix.raw);
     glad_glUniform4f(ambient_loc, ambient.r, ambient.g, ambient.b, ambient.a);
@@ -319,9 +315,7 @@ Mesh load_mesh_gltf(const char* filename, cgltf_data* data, unsigned int primiti
 
 Model load_model(const char* file_name){
     Model model_out = {0};
-    model_out.local_transform.translation = glms_vec3_zero();
-    model_out.local_transform.rotation    = glms_quat_identity();
-    model_out.local_transform.scale       = glms_vec3_one();
+    model_out.transform = glms_mat4_identity();
     model_out.material.shader = 0;
     model_out.material.albedo = (Texture){0};
     model_out.skeleton = (Skeleton){0};
@@ -350,6 +344,9 @@ Model load_model(const char* file_name){
 
     return model_out;
 }
+/* ------------- WARNING!!!!! --------------
+    Meshes need to be triangulated
+-------------------------------------------- */
 Mesh load_mesh_obj(const char* path){
     Mesh mesh_out = {0};
     mesh_out.positions = NULL;
@@ -490,11 +487,20 @@ char* get_file_content(const char* fileName){
 }
 unsigned int create_shader_program(const char* vert_shader_path, const char* frag_shader_path){
     const char* vert = get_file_content(vert_shader_path);
+    if(vert == NULL){
+        printf("shader: %s couldn't be created\n", vert_shader_path);
+        
+        return -1;
+    }
     unsigned int vert_shader = glad_glCreateShader(GL_VERTEX_SHADER);
     glad_glShaderSource(vert_shader, 1, &vert, NULL);
     glad_glCompileShader(vert_shader);
 
     const char* frag = get_file_content(frag_shader_path);
+    if(frag == NULL){
+        printf("shader: %s couldn't be created\n", frag_shader_path);
+        return -1;
+    }
     unsigned int frag_shader= glad_glCreateShader(GL_FRAGMENT_SHADER);
     glad_glShaderSource(frag_shader, 1, &frag, NULL);
     glad_glCompileShader(frag_shader);
@@ -685,4 +691,108 @@ void update_model_animation(Model* model, int anim_index, float dt){
     }
 
     glad_glUseProgram(0);
+}
+
+/* - - - Cube map - - - */
+
+CubeMap load_cubemap(char** faces_path){
+    CubeMap cubemap = {0};
+    cubemap.shader = create_shader_program("./shaders/cubemap_vert.glsl", "./shaders/cubemap_frag.glsl");
+    float skyboxVertices[] = {
+        // positions          
+        -1.0f,  1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+
+        -1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+
+        -1.0f, -1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+
+        -1.0f,  1.0f, -1.0f,
+         1.0f,  1.0f, -1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f, -1.0f,
+
+        -1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f,  1.0f
+    };
+    glad_glGenVertexArrays(1, &cubemap.vao);
+    glad_glBindVertexArray(cubemap.vao);
+    glad_glGenBuffers(1, &cubemap.vbo);
+    glad_glBindBuffer(GL_ARRAY_BUFFER, cubemap.vbo);
+    glad_glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), skyboxVertices, GL_STATIC_DRAW);
+    glad_glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glad_glEnableVertexAttribArray(0);
+
+    glad_glGenTextures(1, &cubemap.cubemap_tex);
+    glad_glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap.cubemap_tex);
+
+    int width, height, nrChannels;
+    for (unsigned int i = 0; i < 6; i++) {
+        unsigned char *data = stbi_load(faces_path[i], &width, &height, &nrChannels, 0);
+        if (data) {
+            glad_glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
+                         0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
+            );
+            stbi_image_free(data);
+        }
+        else {
+            printf("Cubemap tex failed to load at path: %s\n", faces_path[i]);
+            stbi_image_free(data);
+        }
+    }
+    glad_glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glad_glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glad_glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glad_glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glad_glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    return cubemap;
+}
+void draw_cubemap(CubeMap cubemap, Camera camera){
+    glad_glDepthFunc(GL_LEQUAL);
+    glad_glUseProgram(cubemap.shader);
+
+    int view_loc       = glad_glGetUniformLocation(cubemap.shader, "view");
+    int projection_loc = glad_glGetUniformLocation(cubemap.shader, "proj");
+
+    mat4s view_no_translation = glms_mat4_ins3(
+        glms_mat4_pick3(camera.view_matrix),
+        glms_mat4_identity()
+    );
+    glad_glUniformMatrix4fv(projection_loc, 1, GL_FALSE, (const float*)camera.proj_matrix.raw);
+    glad_glUniformMatrix4fv(view_loc, 1, GL_FALSE, (const float*)view_no_translation.raw);
+
+    glad_glActiveTexture(GL_TEXTURE0);
+    glad_glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap.cubemap_tex);
+
+    glad_glBindVertexArray(cubemap.vao);
+    glad_glDrawArrays(GL_TRIANGLES, 0, 36);
+    glad_glDepthFunc(GL_LESS);    
 }

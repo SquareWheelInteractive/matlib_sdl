@@ -3,6 +3,107 @@
 #include <math.h>
 #include "glad/glad.h"
 
+static int node_to_bone_index(cgltf_skin* skin, cgltf_node* node) {
+    for (size_t i = 0; i < skin->joints_count; i++)
+        if (skin->joints[i] == node) return (int)i;
+    return -1;
+}
+
+/* -----------------------------------------------------------------------
+   Fills sk->bones[], sk->nodes[], and all sk->clips[] from cgltf_data.
+
+   skin_index  – which skin in data->skins[] to use (usually 0)
+   ----------------------------------------------------------------------- */
+void skeleton_load(Skeleton* sk, cgltf_data* data, unsigned short skin_index) {
+    memset(sk, 0, sizeof(Skeleton));
+    sk->anim_state.clip_index = -1;
+
+    cgltf_skin* skin = &data->skins[skin_index];
+    sk->bone_count   = (uint32_t)skin->joints_count;
+
+    /* ---- 1. Bones: inverse bind matrices + parent index --------------- */
+    for (uint32_t i = 0; i < sk->bone_count; i++) {
+        cgltf_node* joint = skin->joints[i];
+
+        /* inverse bind matrix */
+        float ibm[16];
+        cgltf_accessor_read_float(skin->inverse_bind_matrices, i, ibm, 16);
+        memcpy(sk->bones[i].inverse_bind.raw, ibm, sizeof(float) * 16);
+
+        /* parent: find the joint whose cgltf_node is this node's parent */
+        sk->bones[i].parent_index = -1;
+        if (joint->parent) {
+            int p = node_to_bone_index(skin, joint->parent);
+            sk->bones[i].parent_index = (int16_t)p;
+        }
+    }
+
+    /* ---- 2. Animation clips ------------------------------------------ */
+    sk->clip_count = 0;
+    for (size_t a = 0; a < data->animations_count && sk->clip_count < MAX_CLIPS; a++) {
+        cgltf_animation* anim = &data->animations[a];
+        AnimClip* clip = &sk->clips[sk->clip_count++];
+
+        /* name */
+        if (anim->name)
+            snprintf(clip->name, MAX_CLIP_NAME, "%s", anim->name);
+        else
+            snprintf(clip->name, MAX_CLIP_NAME, "clip_%zu", a);
+
+        /* duration = max time across all samplers */
+        clip->duration = 0.0f;
+        for (size_t s = 0; s < anim->samplers_count; s++) {
+            cgltf_accessor* input = anim->samplers[s].input;
+            float t;
+            cgltf_accessor_read_float(input, input->count - 1, &t, 1);
+            if (t > clip->duration) clip->duration = t;
+        }
+
+        /* channels */
+        clip->channel_count = (uint32_t)anim->channels_count;
+        clip->channels = calloc(clip->channel_count, sizeof(AnimChannel));
+
+        for (uint32_t c = 0; c < clip->channel_count; c++) {
+            cgltf_animation_channel* src = &anim->channels[c];
+            AnimChannel* dst = &clip->channels[c];
+
+            /* bone index */
+            int bi = node_to_bone_index(skin, src->target_node);
+            if (bi < 0) { dst->keyframe_count = 0; continue; } /* non-joint node */
+            dst->bone_index = (uint8_t)bi;
+
+            /* channel type */
+            if(src->target_path == cgltf_animation_path_type_translation)
+                dst->type = CHANNEL_TRANSLATION;
+            else if(src->target_path == cgltf_animation_path_type_rotation)
+                dst->type = CHANNEL_ROTATION;
+            else if(src->target_path == cgltf_animation_path_type_scale)
+                dst->type = CHANNEL_SCALE;
+            else{ dst->keyframe_count = 0; continue; }
+
+            /* keyframe data */
+            cgltf_accessor* input  = src->sampler->input;
+            cgltf_accessor* output = src->sampler->output;
+            int comp = (dst->type == CHANNEL_ROTATION) ? 4 : 3;
+
+            dst->keyframe_count = (uint32_t)input->count;
+            dst->times  = malloc(sizeof(float) * dst->keyframe_count);
+            dst->values = malloc(sizeof(float) * dst->keyframe_count * comp);
+
+            for (uint32_t k = 0; k < dst->keyframe_count; k++) {
+                cgltf_accessor_read_float(input,  k, &dst->times[k], 1);
+                cgltf_accessor_read_float(output, k, &dst->values[k * comp], comp);
+            }
+        }
+    }
+
+    /* auto-play first clip looping if any exist */
+    if (sk->clip_count > 0) {
+        sk->anim_state.clip_index = 0;
+        sk->anim_state.looping    = 1;
+        sk->anim_state.time       = 0.0f;
+    }
+}
 /* -----------------------------------------------------------------------
    Internal: sample one channel at time t → writes into out[].
    ----------------------------------------------------------------------- */
@@ -177,107 +278,4 @@ void skeleton_free(Skeleton* sk) {
     }
     memset(sk, 0, sizeof(Skeleton));
     sk->anim_state.clip_index = -1;
-}
-
-
-static int node_to_bone_index(cgltf_skin* skin, cgltf_node* node) {
-    for (size_t i = 0; i < skin->joints_count; i++)
-        if (skin->joints[i] == node) return (int)i;
-    return -1;
-}
-
-/* -----------------------------------------------------------------------
-   Fills sk->bones[], sk->nodes[], and all sk->clips[] from cgltf_data.
-
-   skin_index  – which skin in data->skins[] to use (usually 0)
-   ----------------------------------------------------------------------- */
-void skeleton_load(Skeleton* sk, cgltf_data* data, unsigned short skin_index) {
-    memset(sk, 0, sizeof(Skeleton));
-    sk->anim_state.clip_index = -1;
-
-    cgltf_skin* skin = &data->skins[skin_index];
-    sk->bone_count   = (uint32_t)skin->joints_count;
-
-    /* ---- 1. Bones: inverse bind matrices + parent index --------------- */
-    for (uint32_t i = 0; i < sk->bone_count; i++) {
-        cgltf_node* joint = skin->joints[i];
-
-        /* inverse bind matrix */
-        float ibm[16];
-        cgltf_accessor_read_float(skin->inverse_bind_matrices, i, ibm, 16);
-        memcpy(sk->bones[i].inverse_bind.raw, ibm, sizeof(float) * 16);
-
-        /* parent: find the joint whose cgltf_node is this node's parent */
-        sk->bones[i].parent_index = -1;
-        if (joint->parent) {
-            int p = node_to_bone_index(skin, joint->parent);
-            sk->bones[i].parent_index = (int16_t)p;
-        }
-    }
-
-    /* ---- 2. Animation clips ------------------------------------------ */
-    sk->clip_count = 0;
-    for (size_t a = 0; a < data->animations_count && sk->clip_count < MAX_CLIPS; a++) {
-        cgltf_animation* anim = &data->animations[a];
-        AnimClip* clip = &sk->clips[sk->clip_count++];
-
-        /* name */
-        if (anim->name)
-            snprintf(clip->name, MAX_CLIP_NAME, "%s", anim->name);
-        else
-            snprintf(clip->name, MAX_CLIP_NAME, "clip_%zu", a);
-
-        /* duration = max time across all samplers */
-        clip->duration = 0.0f;
-        for (size_t s = 0; s < anim->samplers_count; s++) {
-            cgltf_accessor* input = anim->samplers[s].input;
-            float t;
-            cgltf_accessor_read_float(input, input->count - 1, &t, 1);
-            if (t > clip->duration) clip->duration = t;
-        }
-
-        /* channels */
-        clip->channel_count = (uint32_t)anim->channels_count;
-        clip->channels = calloc(clip->channel_count, sizeof(AnimChannel));
-
-        for (uint32_t c = 0; c < clip->channel_count; c++) {
-            cgltf_animation_channel* src = &anim->channels[c];
-            AnimChannel* dst = &clip->channels[c];
-
-            /* bone index */
-            int bi = node_to_bone_index(skin, src->target_node);
-            if (bi < 0) { dst->keyframe_count = 0; continue; } /* non-joint node */
-            dst->bone_index = (uint8_t)bi;
-
-            /* channel type */
-            if(src->target_path == cgltf_animation_path_type_translation)
-                dst->type = CHANNEL_TRANSLATION;
-            else if(src->target_path == cgltf_animation_path_type_rotation)
-                dst->type = CHANNEL_ROTATION;
-            else if(src->target_path == cgltf_animation_path_type_scale)
-                dst->type = CHANNEL_SCALE;
-            else{ dst->keyframe_count = 0; continue; }
-
-            /* keyframe data */
-            cgltf_accessor* input  = src->sampler->input;
-            cgltf_accessor* output = src->sampler->output;
-            int comp = (dst->type == CHANNEL_ROTATION) ? 4 : 3;
-
-            dst->keyframe_count = (uint32_t)input->count;
-            dst->times  = malloc(sizeof(float) * dst->keyframe_count);
-            dst->values = malloc(sizeof(float) * dst->keyframe_count * comp);
-
-            for (uint32_t k = 0; k < dst->keyframe_count; k++) {
-                cgltf_accessor_read_float(input,  k, &dst->times[k], 1);
-                cgltf_accessor_read_float(output, k, &dst->values[k * comp], comp);
-            }
-        }
-    }
-
-    /* auto-play first clip looping if any exist */
-    if (sk->clip_count > 0) {
-        sk->anim_state.clip_index = 0;
-        sk->anim_state.looping    = 1;
-        sk->anim_state.time       = 0.0f;
-    }
 }

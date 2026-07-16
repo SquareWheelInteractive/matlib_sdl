@@ -4,17 +4,59 @@
     "arguments": [
       "/usr/bin/gcc",
       "main.c",
-      "-I."
+      "-I.",
+      "-I./external/",
+      "-g",
+      "--std=c11"
     ],
-    "directory": "/home/mateo/Desktop/sdl_test"
+    "directory": "/home/mateo/Desktop/matlib_sdl"
   },
   {
-    "file": "glad/glad.c",
+    "file": "matlib/matlib.c",
     "arguments": [
       "/usr/bin/gcc",
-      "glad/glad.c",
-      "-I."
+      "matlib/matlib.c",
+      "-I.",
+      "-I./external/",
+      "-g",
+      "--std=c11"
     ],
-    "directory": "/home/mateo/Desktop/sdl_test"
+    "directory": "/home/mateo/Desktop/matlib_sdl"
+  },
+  {
+    "file": "matlib/node_hierarchy.c",
+    "arguments": [
+      "/usr/bin/gcc",
+      "matlib/node_hierarchy.c",
+      "-I.",
+      "-I./external/",
+      "-g",
+      "--std=c11"
+    ],
+    "directory": "/home/mateo/Desktop/matlib_sdl"
+  },
+  {
+    "file": "matlib/skeleton.c",
+    "arguments": [
+      "/usr/bin/gcc",
+      "matlib/skeleton.c",
+      "-I.",
+      "-I./external/",
+      "-g",
+      "--std=c11"
+    ],
+    "directory": "/home/mateo/Desktop/matlib_sdl"
+  },
+  {
+    "file": "external/glad/glad.c",
+    "arguments": [
+      "/usr/bin/gcc",
+      "external/glad/glad.c",
+      "-I.",
+      "-I./external/",
+      "-g",
+      "--std=c11"
+    ],
+    "directory": "/home/mateo/Desktop/matlib_sdl"
   }
 ]

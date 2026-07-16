@@ -1,6 +1,6 @@
 #pragma once
-#include "../cglm/struct.h"// IWYU pragma: keep
-#include "external/cgltf.h"
+#include "cglm/struct.h"// IWYU pragma: keep
+#include "cgltf.h"
 #include "skeleton.h"
 
 #define DEG2RAD 0.0174533f
@@ -23,6 +23,13 @@ typedef enum{
     CAMERA_PERSPECTIVE = 0xa,
     CAMERA_ORTHO
 } CameraProjectionType;
+
+typedef struct{
+    unsigned int vao;
+    unsigned int vbo;
+    unsigned int cubemap_tex;
+    unsigned int shader;
+} CubeMap;
 
 typedef struct{
     float r;
@@ -77,7 +84,7 @@ typedef struct{
 } Material;
 
 typedef struct{
-    Transform local_transform;
+    mat4s transform;
 
     Material material;
 
@@ -107,3 +114,5 @@ Mesh load_mesh_gltf(const char* filename, cgltf_data* data, unsigned int primiti
 Model load_model(const char* file_name);
 void free_model(Model* model);
 void update_model_animation(Model* model, int anim_index, float dt);
+CubeMap load_cubemap(char** faces_path);
+void draw_cubemap(CubeMap cubemap, Camera camera);

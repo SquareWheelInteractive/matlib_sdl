@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "cglm/struct.h" // IWYU pragma: keep
-#include "external/cgltf.h"
+#include "cgltf.h"
 
 #define MAX_BONES      128
 #define MAX_CLIPS      32
