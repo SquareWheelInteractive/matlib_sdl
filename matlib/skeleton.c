@@ -10,8 +10,7 @@ static int node_to_bone_index(cgltf_skin* skin, cgltf_node* node) {
 }
 
 /* -----------------------------------------------------------------------
-   Fills sk->bones[], sk->nodes[], and all sk->clips[] from cgltf_data.
-
+   Fills sk->bones[], sk->clips[] from cgltf_data.
    skin_index  – which skin in data->skins[] to use (usually 0)
    ----------------------------------------------------------------------- */
 void skeleton_load(Skeleton* sk, cgltf_data* data, unsigned short skin_index) {
@@ -188,22 +187,17 @@ static mat4s bone_local_matrix(const Skeleton* sk, uint32_t bone_idx, const Anim
              however you like, or use skeleton_advance() below)
    ----------------------------------------------------------------------- */
 void skeleton_update(Skeleton* sk, float time) {
-    if (sk->anim_state.clip_index < 0 ||
-        sk->anim_state.clip_index >= (int32_t)sk->clip_count) {
-        /* no clip → identity for all bones */
-        for (uint32_t i = 0; i < sk->bone_count; i++)
+    if (sk->anim_state.clip_index < 0 || sk->anim_state.clip_index >= (int32_t)sk->clip_count) {
+        for (size_t i = 0; i < sk->bone_count; i++)
             sk->final_matrices[i] = glms_mat4_identity();
         return;
     }
 
     const AnimClip* clip = &sk->clips[sk->anim_state.clip_index];
 
-    /* We accumulate world transforms top-down.
-       Because bones[] is stored in parent-before-child order (guaranteed
-       by how skeleton_load fills it), a single forward pass is enough. */
     mat4s world[MAX_BONES];
 
-    for (uint32_t i = 0; i < sk->bone_count; i++) {
+    for (size_t i = 0; i < sk->bone_count; i++) {
         mat4s local = bone_local_matrix(sk, i, clip, time);
 
         int16_t p = sk->bones[i].parent_index;
@@ -234,7 +228,7 @@ float skeleton_advance(Skeleton* sk, float dt) {
    Switch to a named clip by name.  Returns true on success, false if not found.
    ----------------------------------------------------------------------- */
 bool skeleton_play(Skeleton* sk, const char* clip_name, int loop) {
-    for (uint32_t i = 0; i < sk->clip_count; i++) {
+    for (size_t i = 0; i < sk->clip_count; i++) {
         if (strcmp(sk->clips[i].name, clip_name) == 0) {
             sk->anim_state.clip_index = (int32_t)i;
             sk->anim_state.time       = 0.0f;
@@ -257,9 +251,6 @@ bool skeleton_play_index(Skeleton* sk, int index, int loop) {
     return false;   /* clip not found */
 }
 
-/* -----------------------------------------------------------------------
-   skeleton_free()
-   ----------------------------------------------------------------------- */
 void skeleton_free(Skeleton* sk) {
     if(!sk) return;
     
@@ -268,7 +259,7 @@ void skeleton_free(Skeleton* sk) {
 
         if(clip->channels == NULL) continue;
 
-        for (uint32_t i = 0; i < clip->channel_count; i++) {
+        for (size_t i = 0; i < clip->channel_count; i++) {
             if(clip->channels[i].times != NULL)
                 free(clip->channels[i].times);
             if(clip->channels[i].values != NULL)

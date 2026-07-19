@@ -1,6 +1,7 @@
 #include "matlib/matlib.h"
 #include "glad/glad.h"
 #include "matlib/node_hierarchy.h"
+#include "matlib/lights.h"
 
 #define WIDTH 1000
 #define HEIGHT 600
@@ -20,36 +21,31 @@ int main() {
     };
     CubeMap cube_map = load_cubemap(sky_box_textures);
 
-    unsigned int shader = create_shader_program("./shaders/vert.glsl", "./shaders/frag.glsl");
-    unsigned int skinning_shader = create_shader_program("./shaders/skinning_vert.glsl", "./shaders/frag.glsl");
+    unsigned int light_shader = create_shader_program("./shaders/lighting_vert.glsl", "./shaders/lighting_frag.glsl");
 
     Camera cam = create_camera(CAMERA_PERSPECTIVE);
 
     Model house = load_model("./resources/medieval_house.obj");
-    house.material.shader = shader;
+    house.material.shader = light_shader;
     house.material.albedo = load_texture("./resources/houseTexture.png");
 
-    Model man = load_model("./resources/CesiumMan.glb");
-    man.material.shader = skinning_shader;
-    man.transform = glms_translate_make((vec3s){0,0,1});
-    man.material.albedo = load_texture("./resources/CesiumMan_img0.jpg");
-
     Node root = init_node();
-    Node man_node = init_node();
     Node house_node = init_node();
 
-    man_node.model = man;
     house_node.model = house;
 
-    set_child(&root, &man_node);
     set_child(&root, &house_node);
+
+    Light light = create_light(LIGHT_TYPE_POINT, (vec3s){3,1,0}, (Color){1,0,0,1}, 3, glms_vec3_zero(), light_shader);
+
     //main loop
     while (!window_should_close()) {
+        light.position = cam.target;
         double dt = get_frame_time();;
         update_camera(&cam, 0.2f, 2.0f, dt);
 
-        update_model_animation(&man, 0, dt);
         update_node_transform_hierarchy(&root);
+        update_light_values(light, light_shader);
 
         begin_drawing(&cam);
         clear_background(BLACK);
@@ -62,7 +58,6 @@ int main() {
     }
 
     free_model(&house);
-    free_model(&man);
 
     close_window();
 

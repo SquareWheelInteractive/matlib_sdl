@@ -130,21 +130,22 @@ static int is_file_extension(const char* filename, const char* extension) {
     return strcmp(filename + file_len - ext_len, extension) == 0;
 }
 
-
 void draw_model(Model* model, Camera* cam, Color ambient){
     if(!model || !cam || !model->meshes) return;
 
     glad_glUseProgram(model->material.shader);
 
-    unsigned int model_loc   = glad_glGetUniformLocation(model->material.shader, "model");
-    unsigned int view_loc    = glad_glGetUniformLocation(model->material.shader, "view");
-    unsigned int proj_loc    = glad_glGetUniformLocation(model->material.shader, "projection");
-    unsigned int ambient_loc = glad_glGetUniformLocation(model->material.shader, "ambient");
+    unsigned int model_loc    = glad_glGetUniformLocation(model->material.shader, "model");
+    unsigned int view_loc     = glad_glGetUniformLocation(model->material.shader, "view");
+    unsigned int proj_loc     = glad_glGetUniformLocation(model->material.shader, "projection");
+    unsigned int ambient_loc  = glad_glGetUniformLocation(model->material.shader, "ambient");
+    unsigned int view_pos_loc = glad_glGetUniformLocation(model->material.shader, "view_pos");
 
     glad_glUniformMatrix4fv(model_loc, 1, GL_FALSE, (const float*)model->transform.raw);
     glad_glUniformMatrix4fv(view_loc , 1, GL_FALSE, (const float*)cam->view_matrix.raw);
     glad_glUniformMatrix4fv(proj_loc , 1, GL_FALSE, (const float*)cam->proj_matrix.raw);
     glad_glUniform4f(ambient_loc, ambient.r, ambient.g, ambient.b, ambient.a);
+    glad_glUniform3f(view_pos_loc, cam->position.x, cam->position.y, cam->position.z);
 
     if(model->material.albedo.id > 0)
         glad_glBindTexture(GL_TEXTURE_2D, model->material.albedo.id);
