@@ -9,6 +9,7 @@ in vec3 normal;
 #define MAX_LIGHTS 4
 #define POINT_LIGHT_TYPE 0
 #define SPOT_LIGHT_TYPE 1
+#define DIRECTIONAL_LIGHT_TYPE 2
 
 struct Light {
     int enabled;
@@ -16,6 +17,7 @@ struct Light {
     vec3 direction;
     vec3 position;
     vec4 color;
+    float intensity;
     float radius;
 };
 
@@ -46,15 +48,21 @@ void main() {
             attenuation = clamp(attenuation, 0, 1);
 
             if(lights[i].type == POINT_LIGHT_TYPE){
-                diffuse += lights[i].color* dot_nl * attenuation;
+                diffuse += lights[i].color* dot_nl * attenuation * lights[i].intensity;
             }
             if(lights[i].type == SPOT_LIGHT_TYPE){
                 float cutoff = 0.9;
                 float spot_factor = dot(dir_to_light, -normalize(lights[i].direction));
                 if( spot_factor > cutoff){
-                    float intensity = smoothstep(0,1, ( 1.0 - (1.0 - spot_factor) / (1.0 - cutoff)));
-                    diffuse += (lights[i].color * dot_nl * attenuation) * intensity;
+                    float smoothness = smoothstep(0,1, ( 1.0 - (1.0 - spot_factor) / (1.0 - cutoff)));
+                    diffuse += (lights[i].color * dot_nl * attenuation) * smoothness * lights[i].intensity;
                 }
+            }
+            if(lights[i].type == DIRECTIONAL_LIGHT_TYPE){
+                vec3 sun_dir = normalize(-lights[i].direction);
+                float dot_ns = dot(sun_dir, norm);
+                float factor = max(dot_ns, 0.0);
+                diffuse += lights[i].color * factor * lights[i].intensity;
             }
         }
     }
@@ -63,7 +71,6 @@ void main() {
 
     float dist = length(view_pos - frag_pos);
     float fog_factor= 1.0/exp((dist*fog_density)*(dist*fog_density));
-
 
     fog_factor = clamp(fog_factor, 0.0, 1.0);
 

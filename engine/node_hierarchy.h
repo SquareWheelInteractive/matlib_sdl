@@ -1,6 +1,6 @@
 #pragma once
 
-#include "matlib.h"
+#include "matlib/matlib.h"
 
 #define MAX_CHILDREN 8
 

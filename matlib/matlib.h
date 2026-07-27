@@ -1,5 +1,4 @@
 #pragma once
-#include "cglm/struct.h"// IWYU pragma: keep
 #include "cgltf.h"
 #include "skeleton.h"
 

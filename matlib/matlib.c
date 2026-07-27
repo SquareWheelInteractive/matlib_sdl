@@ -10,6 +10,7 @@
 #define CGLTF_IMPLEMENTATION
 #include "cgltf.h"
 #include "skeleton.h"
+#include "external/cglm/struct.h"// IWYU pragma: keep
 
 Global global;
 /* - - - Window related - - - */

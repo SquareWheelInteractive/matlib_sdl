@@ -5,6 +5,20 @@
       "/usr/bin/gcc",
       "main.c",
       "-I.",
+      "-I./engine/",
+      "-I./external/",
+      "-g",
+      "--std=c11"
+    ],
+    "directory": "/home/mateo/Desktop/matlib_sdl"
+  },
+  {
+    "file": "matlib/lights.c",
+    "arguments": [
+      "/usr/bin/gcc",
+      "matlib/lights.c",
+      "-I.",
+      "-I./engine/",
       "-I./external/",
       "-g",
       "--std=c11"
@@ -17,18 +31,7 @@
       "/usr/bin/gcc",
       "matlib/matlib.c",
       "-I.",
-      "-I./external/",
-      "-g",
-      "--std=c11"
-    ],
-    "directory": "/home/mateo/Desktop/matlib_sdl"
-  },
-  {
-    "file": "matlib/node_hierarchy.c",
-    "arguments": [
-      "/usr/bin/gcc",
-      "matlib/node_hierarchy.c",
-      "-I.",
+      "-I./engine/",
       "-I./external/",
       "-g",
       "--std=c11"
@@ -41,6 +44,20 @@
       "/usr/bin/gcc",
       "matlib/skeleton.c",
       "-I.",
+      "-I./engine/",
+      "-I./external/",
+      "-g",
+      "--std=c11"
+    ],
+    "directory": "/home/mateo/Desktop/matlib_sdl"
+  },
+  {
+    "file": "engine/node_hierarchy.c",
+    "arguments": [
+      "/usr/bin/gcc",
+      "engine/node_hierarchy.c",
+      "-I.",
+      "-I./engine/",
       "-I./external/",
       "-g",
       "--std=c11"
@@ -53,6 +70,7 @@
       "/usr/bin/gcc",
       "external/glad/glad.c",
       "-I.",
+      "-I./engine/",
       "-I./external/",
       "-g",
       "--std=c11"
