@@ -24,7 +24,7 @@ int main() {
     unsigned int light_shader = create_shader_program("./shaders/lighting_vert.glsl", "./shaders/lighting_frag.glsl");
     unsigned int skinning_shader= create_shader_program("./shaders/skinning_vert.glsl", "./shaders/lighting_frag.glsl");
 
-    Camera cam = create_camera(CAMERA_PERSPECTIVE);
+    Camera cam = create_and_init_camera(CAMERA_PERSPECTIVE);
 
     Model house = load_model("./resources/medieval_house.obj");
     house.material.shader = light_shader;
@@ -49,12 +49,14 @@ int main() {
     while (!window_should_close()) {
         light.position = cam.position;
         light.direction = glms_vec3_sub(cam.target, cam.position);
+
         double dt = get_frame_time();
-        update_camera(&cam, 0.2f, 2.0f, dt);
+        camera_move(&cam, 0.2f, 2.0f, dt);
 
         update_model_animation(&man, 0, dt);
 
         update_node_transform_hierarchy(&root);
+
         update_light_values(light, light_shader);
         update_light_values(sun, light_shader);
         update_light_values(light, skinning_shader);
@@ -72,6 +74,7 @@ int main() {
     }
 
     free_model(&house);
+    free_model(&man);
 
     close_window();
 

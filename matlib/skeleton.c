@@ -11,7 +11,6 @@ static int node_to_bone_index(cgltf_skin* skin, cgltf_node* node) {
 
 /* -----------------------------------------------------------------------
    Fills sk->bones[], sk->clips[] from cgltf_data.
-   skin_index  – which skin in data->skins[] to use (usually 0)
    ----------------------------------------------------------------------- */
 void skeleton_load(Skeleton* sk, cgltf_data* data, unsigned short skin_index) {
     memset(sk, 0, sizeof(Skeleton));
@@ -20,16 +19,14 @@ void skeleton_load(Skeleton* sk, cgltf_data* data, unsigned short skin_index) {
     cgltf_skin* skin = &data->skins[skin_index];
     sk->bone_count   = (uint32_t)skin->joints_count;
 
-    /* ---- 1. Bones: inverse bind matrices + parent index --------------- */
     for (uint32_t i = 0; i < sk->bone_count; i++) {
         cgltf_node* joint = skin->joints[i];
 
-        /* inverse bind matrix */
         float ibm[16];
         cgltf_accessor_read_float(skin->inverse_bind_matrices, i, ibm, 16);
         memcpy(sk->bones[i].inverse_bind.raw, ibm, sizeof(float) * 16);
 
-        /* parent: find the joint whose cgltf_node is this node's parent */
+        /* find the joint whose cgltf_node is this node's parent */
         sk->bones[i].parent_index = -1;
         if (joint->parent) {
             int p = node_to_bone_index(skin, joint->parent);
@@ -37,13 +34,11 @@ void skeleton_load(Skeleton* sk, cgltf_data* data, unsigned short skin_index) {
         }
     }
 
-    /* ---- 2. Animation clips ------------------------------------------ */
     sk->clip_count = 0;
     for (size_t a = 0; a < data->animations_count && sk->clip_count < MAX_CLIPS; a++) {
         cgltf_animation* anim = &data->animations[a];
         AnimClip* clip = &sk->clips[sk->clip_count++];
 
-        /* name */
         if (anim->name)
             snprintf(clip->name, MAX_CLIP_NAME, "%s", anim->name);
         else
@@ -58,7 +53,6 @@ void skeleton_load(Skeleton* sk, cgltf_data* data, unsigned short skin_index) {
             if (t > clip->duration) clip->duration = t;
         }
 
-        /* channels */
         clip->channel_count = (uint32_t)anim->channels_count;
         clip->channels = calloc(clip->channel_count, sizeof(AnimChannel));
 
@@ -71,7 +65,6 @@ void skeleton_load(Skeleton* sk, cgltf_data* data, unsigned short skin_index) {
             if (bi < 0) { dst->keyframe_count = 0; continue; } /* non-joint node */
             dst->bone_index = (uint8_t)bi;
 
-            /* channel type */
             if(src->target_path == cgltf_animation_path_type_translation)
                 dst->type = CHANNEL_TRANSLATION;
             else if(src->target_path == cgltf_animation_path_type_rotation)
@@ -104,7 +97,7 @@ void skeleton_load(Skeleton* sk, cgltf_data* data, unsigned short skin_index) {
     }
 }
 /* -----------------------------------------------------------------------
-   Internal: sample one channel at time t → writes into out[].
+   sample one channel at time t → writes into out[].
    ----------------------------------------------------------------------- */
 static void sample_channel(const AnimChannel* ch, float t, float* out) {
     int comp  = (ch->type == CHANNEL_ROTATION) ? 4 : 3;
@@ -150,7 +143,7 @@ static void sample_channel(const AnimChannel* ch, float t, float* out) {
 }
 
 /* -----------------------------------------------------------------------
-   Internal: local TRS matrix for bone[i] at time t in the current clip.
+   local TRS matrix for bone[i] at time t in the current clip.
    ----------------------------------------------------------------------- */
 static mat4s bone_local_matrix(const Skeleton* sk, uint32_t bone_idx, const AnimClip* clip, float t) {
     vec3s   T = glms_vec3_zero();
@@ -181,10 +174,7 @@ static mat4s bone_local_matrix(const Skeleton* sk, uint32_t bone_idx, const Anim
 }
 
 /* -----------------------------------------------------------------------
-   Writes skeleton->final_matrices[], which you then upload to the shader.
-
-   time   – current playback time in seconds (you manage looping / clamping
-             however you like, or use skeleton_advance() below)
+   Writes skeleton->final_matrices[], which then gets uploaded to the shader
    ----------------------------------------------------------------------- */
 void skeleton_update(Skeleton* sk, float time) {
     if (sk->anim_state.clip_index < 0 || sk->anim_state.clip_index >= (int32_t)sk->clip_count) {
@@ -224,10 +214,7 @@ float skeleton_advance(Skeleton* sk, float dt) {
     return sk->anim_state.time;
 }
 
-/* -----------------------------------------------------------------------
-   Switch to a named clip by name.  Returns true on success, false if not found.
-   ----------------------------------------------------------------------- */
-bool skeleton_play(Skeleton* sk, const char* clip_name, int loop) {
+bool skeleton_play_name(Skeleton* sk, const char* clip_name, int loop) {
     for (size_t i = 0; i < sk->clip_count; i++) {
         if (strcmp(sk->clips[i].name, clip_name) == 0) {
             sk->anim_state.clip_index = (int32_t)i;
@@ -236,11 +223,9 @@ bool skeleton_play(Skeleton* sk, const char* clip_name, int loop) {
             return true;
         }
     }
-    return false;   /* clip not found */
+    return false;
 }
-/* -----------------------------------------------------------------------
-   Switch to a named clip by index.  Returns true on success, false if not found.
-   ----------------------------------------------------------------------- */
+
 bool skeleton_play_index(Skeleton* sk, int index, int loop) {
     if (index < sk->clip_count) {
         sk->anim_state.clip_index = index;
@@ -248,7 +233,7 @@ bool skeleton_play_index(Skeleton* sk, int index, int loop) {
         sk->anim_state.looping    = loop;
         return true;
     }
-    return false;   /* clip not found */
+    return false;
 }
 
 void skeleton_free(Skeleton* sk) {

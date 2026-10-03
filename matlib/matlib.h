@@ -1,9 +1,11 @@
 #pragma once
 #include "cgltf.h"
+#define CGLM_USE_ANONYMOUS_STRUCT 1
+#include "external/cglm/struct.h"// IWYU pragma: keep
 #include "skeleton.h"
 
 #define DEG2RAD 0.0174533f
-#define RAD2DEG 57.2958f
+#define RAD2DEG 57.295791f
 
 #define SKY_BLUE (Color){0.45f, 0.65f, 0.86f, 1.0f}
 #define BLACK (Color){0.1f, 0.1f, 0.1f, 1.0f}
@@ -48,7 +50,7 @@ typedef struct{
     vec3s target;
     vec3s position;
     vec3s up;
-    float fovy;
+    float fov;
     float zoom; // Only used when camera is orthographic
 
     mat4s view_matrix;
@@ -103,9 +105,9 @@ void clear_background(Color color);
 void begin_drawing(Camera* cam);
 void end_drawing();
 void free_mesh(Mesh* mesh);
-Camera create_camera(CameraProjectionType type);
+Camera create_and_init_camera(CameraProjectionType type);
 Texture load_texture(const char* path);
-void update_camera(Camera* camera, float sens, float move_speed, float dt);
+void camera_move(Camera* camera, float sens, float move_speed, float dt);
 float get_frame_time();
 bool is_key_pressed_once(unsigned int scan_code);
 Mesh load_mesh_obj(const char* path);
@@ -115,3 +117,4 @@ void free_model(Model* model);
 void update_model_animation(Model* model, int anim_index, float dt);
 CubeMap load_cubemap(char** faces_path);
 void draw_cubemap(CubeMap cubemap, Camera camera);
+void set_camera_fov(Camera* camera, float fov);

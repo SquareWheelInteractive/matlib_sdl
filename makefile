@@ -1,2 +1,2 @@
 default:
-	gcc main.c matlib/*.c engine/*.c external/glad/glad.c -I. -I./engine/ -I./external/ -lSDL3 -lm -g --std=c11
+	gcc main.c matlib/*.c engine/*.c external/glad/glad.c -I. -I./engine/ -I./external/ -lSDL3 -lm -g --std=c99

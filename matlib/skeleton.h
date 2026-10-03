@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
+#define CGLM_USE_ANONYMOUS_STRUCT 1
 #include "cglm/struct.h" // IWYU pragma: keep
 #include "cgltf.h"
 
@@ -43,7 +44,7 @@ typedef struct {
 } Bone;
 
 typedef struct {
-    int32_t  clip_index;   /* which clip is playing, -1 = none */
+    int32_t  clip_index;   /* -1 = none */
     float    time;         /* current playback time in seconds  */
     int      looping;
 } AnimState;
@@ -63,6 +64,6 @@ typedef struct {
 void skeleton_load(Skeleton* sk, cgltf_data* data, unsigned short skin_index);
 float skeleton_advance(Skeleton* sk, float dt);
 void skeleton_update(Skeleton* sk, float time);
-bool skeleton_play(Skeleton* sk, const char* clip_name, int loop);
+bool skeleton_play_name(Skeleton* sk, const char* clip_name, int loop);
 bool skeleton_play_index(Skeleton* sk, int index, int loop);
 void skeleton_free(Skeleton* sk);

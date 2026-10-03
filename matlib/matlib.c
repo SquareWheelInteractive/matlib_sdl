@@ -2,7 +2,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include "glad/glad.h"
-#include "global.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define FAST_OBJ_IMPLEMENTATION
@@ -10,9 +9,17 @@
 #define CGLTF_IMPLEMENTATION
 #include "cgltf.h"
 #include "skeleton.h"
-#include "external/cglm/struct.h"// IWYU pragma: keep
+#include "global.h"
 
 Global global;
+
+void set_default_gl_state(){
+    glad_glEnable(GL_DEPTH_TEST);
+    glad_glEnable(GL_CULL_FACE);
+    glad_glCullFace(GL_BACK);
+    glad_glEnable(GL_BLEND);
+    glad_glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
 /* - - - Window related - - - */
 
 bool init_window(const char* app_name, int width, int height){
@@ -47,17 +54,12 @@ bool init_window(const char* app_name, int width, int height){
 
     glad_glViewport(0,0, width, height);
 
-    glad_glEnable(GL_DEPTH_TEST);
-    glad_glEnable(GL_CULL_FACE);
-    glad_glCullFace(GL_BACK);
-    glad_glEnable(GL_BLEND);
-    glad_glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    set_default_gl_state();
 
     // Enable vsync
     if (!SDL_GL_SetSwapInterval(1)) {
         SDL_Log("VSync failed: %s", SDL_GetError());
     }
-
 
     return 1;
 }
@@ -67,7 +69,7 @@ static void resize_window(Camera* cam){
         glad_glViewport(0,0, global.window_context.screen_width, global.window_context.screen_height);
         switch (cam->type) {
             case CAMERA_PERSPECTIVE:
-                cam->proj_matrix = glms_perspective(cam->fovy * DEG2RAD, (float)global.window_context.screen_width / global.window_context.screen_height, 0.01f, 100.0f);
+                cam->proj_matrix = glms_perspective(cam->fov * DEG2RAD, (float)global.window_context.screen_width / global.window_context.screen_height, 0.01f, 100.0f);
                 break;
             case CAMERA_ORTHO:
                 ;float halfHeight = cam->zoom;
@@ -532,41 +534,20 @@ void clear_background(Color color){
     glad_glClearColor(color.r,color.g,color.b, color.a);
 }
 
-static void update_camera_matrix(Camera* cam){
+static void update_camera_view_matrix(Camera* cam){
     cam->view_matrix = glms_lookat(cam->position, cam->target, cam->up);
 }
 
-void begin_drawing(Camera* cam){
-    glad_glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    update_camera_matrix(cam);
-    resize_window(cam);
-}
-void end_drawing(){
-    SDL_GL_SwapWindow(global.window_context.window);
-}
-
-Camera create_camera(CameraProjectionType type){
-    Camera cam = {0};
-
-    cam.fovy = 70;
-    cam.target = (vec3s){.x = 0, .y = 0, .z = 0};
-    cam.position = (vec3s){.x = 0, .y = 0, .z = 2};
-    cam.up = (vec3s){0,1,0};
-    cam.zoom = 1;
-    float aspect = (float)global.window_context.screen_width / global.window_context.screen_height;
-    switch (type) {
+void update_camera_projection_matrix(Camera* camera, float aspect_ratio, float near, float far){
+    switch (camera->type) {
         case CAMERA_PERSPECTIVE:
-            cam.type = CAMERA_PERSPECTIVE;
-            cam.proj_matrix = glms_perspective(cam.fovy * DEG2RAD, aspect, 0.05f, 100.0f);
+            camera->proj_matrix = glms_perspective(camera->fov * DEG2RAD, aspect_ratio, near, far);
             break;
         case CAMERA_ORTHO:
-            cam.type = CAMERA_ORTHO;
-            cam.zoom = 5;
-            float halfHeight = cam.zoom;
-            float halfWidth = cam.zoom* aspect;
+            float halfHeight = camera->zoom;
+            float halfWidth = camera->zoom * aspect_ratio;
 
-            cam.proj_matrix = glms_ortho(
+            camera->proj_matrix = glms_ortho(
                 -halfWidth,
                  halfWidth,
                 -halfHeight,
@@ -579,6 +560,44 @@ Camera create_camera(CameraProjectionType type){
             printf("CAMERA CREATION ERROR: try using the correct enum values\n");
             break;
     }
+}
+
+void begin_drawing(Camera* cam){
+    glad_glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    update_camera_view_matrix(cam);
+    resize_window(cam);
+}
+void end_drawing(){
+    SDL_GL_SwapWindow(global.window_context.window);
+}
+
+
+void set_camera_fov(Camera* camera, float fov){
+    if(camera->type == CAMERA_ORTHO){
+        printf("You can't change fov of an orthographic camera,\nmaybe you mean to change the zoom\n");
+        return;
+    }
+
+    camera->fov = fov;
+
+    float aspect = (float)global.window_context.screen_width / global.window_context.screen_height;
+    update_camera_projection_matrix(camera, aspect, 0.05f, 100.0f);
+}
+
+Camera create_and_init_camera(CameraProjectionType type){
+    Camera cam = {0};
+
+    cam.type = type;
+    cam.fov = 70;
+    cam.target = (vec3s){.x = 0, .y = 0, .z = 0};
+    cam.position = (vec3s){.x = 0, .y = 0, .z = 2};
+    cam.up = (vec3s){0,1,0};
+    cam.zoom = 1;
+    float aspect = (float)global.window_context.screen_width / global.window_context.screen_height;
+
+    update_camera_projection_matrix(&cam, aspect, 0.05f, 100.0f);
+    update_camera_view_matrix(&cam);
 
     return cam;
 }
@@ -617,7 +636,7 @@ Texture load_texture(const char* path){
 
 static float pitch = 0, yaw = -90;
 static bool cursor_captured = false;
-void update_camera(Camera* camera, float sens, float move_speed, float dt){
+void camera_move(Camera* camera, float sens, float move_speed, float dt){
     SDL_SetWindowRelativeMouseMode(global.window_context.window, cursor_captured);
     if(is_key_pressed_once(SDL_SCANCODE_ESCAPE)){
         cursor_captured = !cursor_captured;
