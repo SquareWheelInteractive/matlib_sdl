@@ -64,28 +64,7 @@ bool init_window(const char* app_name, int width, int height){
     return 1;
 }
 
-static void resize_window(Camera* cam){
-    if(global.window_context.has_resized){
-        glad_glViewport(0,0, global.window_context.screen_width, global.window_context.screen_height);
-        switch (cam->type) {
-            case CAMERA_PERSPECTIVE:
-                cam->proj_matrix = glms_perspective(cam->fov * DEG2RAD, (float)global.window_context.screen_width / global.window_context.screen_height, 0.01f, 100.0f);
-                break;
-            case CAMERA_ORTHO:
-                ;float halfHeight = cam->zoom;
-                float halfWidth = cam->zoom * (float)global.window_context.screen_width / global.window_context.screen_height;;
-                cam->proj_matrix = glms_ortho(
-                    -halfWidth,
-                     halfWidth,
-                    -halfHeight,
-                     halfHeight,
-                    0.01f,
-                    100.0f
-                );
-                break;
-        }
-    }
-}
+
 
 bool window_should_close(){
     global.input.is_event_down  = false;
@@ -537,7 +516,6 @@ void clear_background(Color color){
 static void update_camera_view_matrix(Camera* cam){
     cam->view_matrix = glms_lookat(cam->position, cam->target, cam->up);
 }
-
 void update_camera_projection_matrix(Camera* camera, float aspect_ratio, float near, float far){
     switch (camera->type) {
         case CAMERA_PERSPECTIVE:
@@ -559,6 +537,14 @@ void update_camera_projection_matrix(Camera* camera, float aspect_ratio, float n
         default:
             printf("CAMERA CREATION ERROR: try using the correct enum values\n");
             break;
+    }
+}
+
+static void resize_window(Camera* cam){
+    if(global.window_context.has_resized){
+        glad_glViewport(0,0, global.window_context.screen_width, global.window_context.screen_height);
+        float aspect_ratio = (float)global.window_context.screen_width / global.window_context.screen_height;
+        update_camera_projection_matrix(cam, aspect_ratio, 0.05f, 100.0f);
     }
 }
 

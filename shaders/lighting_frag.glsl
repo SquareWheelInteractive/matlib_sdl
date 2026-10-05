@@ -34,7 +34,7 @@ vec4 fog_color = vec4(0.7, 0.6, 0.66, 1.0);
 
 void main() {
     vec3 norm = normalize(normal);
-    vec4 texelColor = texture(tex, uv);
+    vec4 texel_color = texture(tex, uv);
     vec4 diffuse = vec4(0);
 
     for (int i = 0; i < MAX_LIGHTS; i++) {
@@ -67,12 +67,14 @@ void main() {
         }
     }
 
-    frag_color = texelColor*(ambient + diffuse);
+    vec3 phong_color = texel_color.rgb * (ambient + diffuse).rgb;
 
     float dist = length(view_pos - frag_pos);
     float fog_factor= 1.0/exp((dist*fog_density)*(dist*fog_density));
 
     fog_factor = clamp(fog_factor, 0.0, 1.0);
 
-    frag_color= mix(fog_color, frag_color, fog_factor);
+    phong_color = mix(fog_color.rgb, phong_color, fog_factor);
+
+    frag_color = vec4(phong_color, texel_color.a);
 }
