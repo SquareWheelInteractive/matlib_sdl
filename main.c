@@ -25,6 +25,7 @@ int main() {
     unsigned int skinning_shader= create_shader_program("./shaders/skinning_vert.glsl", "./shaders/lighting_frag.glsl");
 
     Camera cam = create_and_init_camera(CAMERA_PERSPECTIVE);
+    set_camera_fov(&cam, 80);
 
     Model house = load_model("./resources/medieval_house.obj");
     house.material.shader = light_shader;
@@ -37,9 +38,9 @@ int main() {
 
     set_child(&root, &house_node);
 
-    Light light = create_light(LIGHT_TYPE_SPOT, (vec3s){3,1,0}, SKY_BLUE, 5, glms_vec3_zero());
-    Light sun = create_light(LIGHT_TYPE_DIRECTIONAL, GLMS_VEC3_ZERO, (Color){0.8f,0.75f,0.65f,1}, 0, (vec3s){-1,-1,0});
-    light.intensity = 2;
+    Light light = create_light(LIGHT_TYPE_SPOT, (vec3s){3,1,0}, WHITE, 5, glms_vec3_zero());
+    Light sun = create_light(LIGHT_TYPE_DIRECTIONAL, glms_vec3_zero(), (Color){0.8f,0.75f,0.65f,1}, 0, (vec3s){-1,-1,0});
+    light.intensity = 4;
 
     Model man = load_model("./resources/CesiumMan.glb");
     man.material.shader = skinning_shader;
@@ -49,6 +50,10 @@ int main() {
     while (!window_should_close()) {
         light.position = cam.position;
         light.direction = glms_vec3_sub(cam.target, cam.position);
+
+        if(is_key_pressed_once(9)){
+            light.enabled = !light.enabled;
+        }
 
         double dt = get_frame_time();
         camera_move(&cam, 0.2f, 2.0f, dt);

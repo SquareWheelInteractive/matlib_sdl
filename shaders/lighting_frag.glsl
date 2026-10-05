@@ -32,6 +32,14 @@ uniform vec3 view_pos;
 float fog_density = 0.08;
 vec4 fog_color = vec4(0.7, 0.6, 0.66, 1.0);
 
+float exposure = 1.6;
+
+vec3 reinhard_luminance(vec3 color) {
+    float l = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    float l_mapped = l / (1.0 + l);
+    return color * (l_mapped / max(l, 0.0001));
+}
+
 void main() {
     vec3 norm = normalize(normal);
     vec4 texel_color = texture(tex, uv);
@@ -68,13 +76,16 @@ void main() {
     }
 
     vec3 phong_color = texel_color.rgb * (ambient + diffuse).rgb;
+    phong_color *= exposure;
+
+    vec3 tone_mapped = reinhard_luminance(phong_color);
 
     float dist = length(view_pos - frag_pos);
     float fog_factor= 1.0/exp((dist*fog_density)*(dist*fog_density));
-
     fog_factor = clamp(fog_factor, 0.0, 1.0);
 
-    phong_color = mix(fog_color.rgb, phong_color, fog_factor);
+    tone_mapped = mix(fog_color.rgb, tone_mapped, fog_factor);
 
-    frag_color = vec4(phong_color, texel_color.a);
+
+    frag_color = vec4(tone_mapped, texel_color.a);
 }

@@ -15,7 +15,7 @@ static char* format_text(const char* fmt, ...) {
 }
 
 /* TODO: this light counting should be the renderer's job,
-   but for now it's alright, this is a remember to do that
+   but for now it's ok, this is a reminder to do that
    at some point */
 static unsigned char light_num = 0;
 Light create_light(int type, vec3s position, Color color, float radious, vec3s direciton){

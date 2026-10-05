@@ -64,8 +64,6 @@ bool init_window(const char* app_name, int width, int height){
     return 1;
 }
 
-
-
 bool window_should_close(){
     global.input.is_event_down  = false;
     global.input.is_evenet_up   = false;
@@ -622,6 +620,7 @@ Texture load_texture(const char* path){
 
 static float pitch = 0, yaw = -90;
 static bool cursor_captured = false;
+vec3s smooth_target = GLMS_VEC3_ZERO;
 void camera_move(Camera* camera, float sens, float move_speed, float dt){
     SDL_SetWindowRelativeMouseMode(global.window_context.window, cursor_captured);
     if(is_key_pressed_once(SDL_SCANCODE_ESCAPE)){
@@ -645,6 +644,7 @@ void camera_move(Camera* camera, float sens, float move_speed, float dt){
     vec3s target = (vec3s){.x = cosf(ry) * cosf(rp),
                            .y = sinf(rp),
                            .z = sinf(ry) * cosf(rp)};
+    smooth_target = glms_vec3_lerp(smooth_target, target, dt * 15);
 
     vec3s forward = glms_vec3_normalize(glms_vec3_sub(camera->target, camera->position));
     vec3s right = glms_vec3_normalize(glms_vec3_cross(forward, camera->up));
@@ -665,7 +665,7 @@ void camera_move(Camera* camera, float sens, float move_speed, float dt){
     dir = glms_vec3_normalize(dir);
 
     camera->position = glms_vec3_add(camera->position, glms_vec3_scale(dir, move_speed * dt));
-    camera->target = glms_vec3_add(camera->position, target);
+    camera->target = glms_vec3_add(camera->position, smooth_target);
 }
 
 static float last_time = 0;
@@ -764,9 +764,18 @@ CubeMap load_cubemap(char** faces_path){
     for (unsigned int i = 0; i < 6; i++) {
         unsigned char *data = stbi_load(faces_path[i], &width, &height, &nrChannels, 0);
         if (data) {
-            glad_glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
+            switch (nrChannels) {
+                case 3:
+                    glad_glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
                          0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
-            );
+                    );
+                    break;
+                case 4:
+                    glad_glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
+                         0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data
+                    );
+                    break;
+            }
             stbi_image_free(data);
         }
         else {
