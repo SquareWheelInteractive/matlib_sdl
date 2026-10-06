@@ -51,6 +51,7 @@ int main() {
         light.position = cam.position;
         light.direction = glms_vec3_sub(cam.target, cam.position);
 
+        // 9 is f key
         if(is_key_pressed_once(9)){
             light.enabled = !light.enabled;
         }

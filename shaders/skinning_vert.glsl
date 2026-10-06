@@ -17,7 +17,7 @@ uniform mat4 projection;
 const int MAX_BONES= 128; 
 uniform mat4 u_bone_matrices[MAX_BONES];
 
-vec4 calc_skinning_pos(){
+mat4 calc_skinning_mat(){
 	vec4 weights = v_weights;
     float length = weights.x + weights.y + weights.z + weights.w;
     if(length != 1){
@@ -32,13 +32,14 @@ vec4 calc_skinning_pos(){
         u_bone_matrices[v_bone_ids.z] * weights.z +
         u_bone_matrices[v_bone_ids.w] * weights.w;
 
-    return skin_matrix * vec4(v_pos, 1.0);
+    return skin_matrix;
 }
 void main(){
-	vec4 skinned_pos = calc_skinning_pos();
+	mat4 skinned_mat = calc_skinning_mat();
+	vec4 skinned_pos = skinned_mat * vec4(v_pos, 1.0);
     gl_Position = projection * view * model * skinned_pos;
 
+    normal = mat3(transpose(inverse(model * skinned_mat))) * v_norm; 
     uv = v_uvs;
     frag_pos = vec3(model * skinned_pos);
-    normal = mat3(transpose(inverse(model))) * v_norm;
 }
