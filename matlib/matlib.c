@@ -31,6 +31,9 @@ bool init_window(const char* app_name, int width, int height){
         SDL_Log("SDL_Init failed: %s\n", SDL_GetError());
         return -1;
     }
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
     // Create window
     global.window_context.window = SDL_CreateWindow(app_name, width, height, SDL_WINDOW_OPENGL);
@@ -52,14 +55,20 @@ bool init_window(const char* app_name, int width, int height){
         return -1;
     }
 
-    glad_glViewport(0,0, width, height);
-
-    set_default_gl_state();
-
     // Enable vsync
     if (!SDL_GL_SetSwapInterval(1)) {
         SDL_Log("VSync failed: %s", SDL_GetError());
     }
+
+    glad_glViewport(0,0, width, height);
+
+    set_default_gl_state();
+
+    #ifdef DEBUG_INFO
+    SDL_Log("DEBUG LOG: WINDOW WIDTH x HEIGHT: %ix%i", global.window_context.screen_width, global.window_context.screen_height);
+    SDL_Log("DEBUG LOG: OPENGL RENDERER: %s", glGetString(GL_RENDERER));
+    SDL_Log("DEBUG LOG: OPENGL VERSION: %s", glGetString(GL_VERSION));
+    #endif
 
     return 1;
 }
@@ -157,6 +166,8 @@ void free_model(Model* model){
 
 /* - - - Mesh related - - - */
 Mesh* load_meshes_gltf(const char* filename, cgltf_data* data, unsigned int* mesh_cont){
+    assert(data);
+
     *mesh_cont = data->meshes[0].primitives_count;
     
     Mesh* meshes_out = malloc(sizeof(Mesh) * *mesh_cont);
@@ -169,6 +180,8 @@ Mesh* load_meshes_gltf(const char* filename, cgltf_data* data, unsigned int* mes
 }
 
 Mesh load_mesh_gltf(const char* filename, cgltf_data* data, unsigned int primitive_index) {
+    assert(data);
+
     Mesh mesh_out = {0};
     mesh_out.positions = NULL;
     mesh_out.normals = NULL;
@@ -176,7 +189,6 @@ Mesh load_mesh_gltf(const char* filename, cgltf_data* data, unsigned int primiti
     mesh_out.bone_ids= NULL;
     mesh_out.weights = NULL;
         
-    // Safety check: Ensure we actually have at least one mesh and one primitive
     if (data->meshes_count > 0 && data->meshes[0].primitives_count > 0) {
         
         // For now, we only grab the first primitive of the first mesh
@@ -316,12 +328,21 @@ Model load_model(const char* file_name){
     
         if (result == cgltf_result_success) {
             cgltf_load_buffers(&options, data, file_name);
-            model_out.meshes = load_meshes_gltf(file_name, data, &model_out.mesh_count); // mesh loading
+            model_out.meshes = load_meshes_gltf(file_name, data, &model_out.mesh_count);
             skeleton_load(&model_out.skeleton, data, 0);
 
             cgltf_free(data);
         }
+        #ifdef DEBUG_INFO
+        if(result == cgltf_result_file_not_found){
+            printf("WARNING!! DEBUG LOG: gltf file '%s' not found\n", file_name);
+            exit(1);
+        }
+        #endif
     }
+    #ifdef DEBUG_INFO
+        printf("DEBUG LOG: Model '%s' loaded successfully\n", file_name);
+    #endif
 
     return model_out;
 }
@@ -337,7 +358,13 @@ Mesh load_mesh_obj(const char* path){
     mesh_out.weights= NULL;
 
     fastObjMesh* mesh = fast_obj_read(path);
-    assert(mesh);
+    #ifdef DEBUG_INFO
+    if(!mesh){
+        printf("WARNING!! DEBUG LOG: OBJ file '%s' not found\n", path);
+    }
+    #endif
+    if(!mesh)
+        return mesh_out;
 
     unsigned int vertices_count = mesh->face_count * 3;
     mesh_out.vertex_count       = vertices_count;
@@ -411,6 +438,8 @@ Mesh load_mesh_obj(const char* path){
 }
 
 void free_mesh(Mesh* mesh){
+    assert(mesh);
+
     if(mesh->positions != NULL)
         free(mesh->positions);
     if(mesh->normals != NULL)
@@ -520,7 +549,7 @@ void update_camera_projection_matrix(Camera* camera, float aspect_ratio, float n
             camera->proj_matrix = glms_perspective(camera->fov * DEG2RAD, aspect_ratio, near, far);
             break;
         case CAMERA_ORTHO:
-            float halfHeight = camera->zoom;
+            ;float halfHeight = camera->zoom;
             float halfWidth = camera->zoom * aspect_ratio;
 
             camera->proj_matrix = glms_ortho(
@@ -595,6 +624,7 @@ Texture load_texture(const char* path){
     if(data){
         switch (texture.channels) {
             case 3:
+                glad_glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
                 glad_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
                 glad_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
                 glad_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texture.width, texture.height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
@@ -608,10 +638,22 @@ Texture load_texture(const char* path){
                 break;
         }
     }
-    else
-        printf("FAILED TO LOAD TEXTURE");
+    else{
+        #ifdef DEBUG_INFO
+            printf("WARNING!! DEBUG LOG: Texture file '%s' not found\n", path);
+        #endif
+    }
 
     stbi_image_free(data);
+
+    #ifdef DEBUG_INFO
+        GLenum err;
+        while ((err = glGetError()) != GL_NO_ERROR) {
+            printf("WARNING!! DEBUG LOG: Texture loading OpenGL Error = %i\n",err);
+        }
+
+        printf("DEBUG LOG: Texture '%s' loaded successfully\n", path);
+    #endif
 
     glad_glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -760,34 +802,39 @@ CubeMap load_cubemap(char** faces_path){
     glad_glGenTextures(1, &cubemap.cubemap_tex);
     glad_glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap.cubemap_tex);
 
+    glad_glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glad_glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glad_glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glad_glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glad_glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
     int width, height, nrChannels;
     for (unsigned int i = 0; i < 6; i++) {
         unsigned char *data = stbi_load(faces_path[i], &width, &height, &nrChannels, 0);
         if (data) {
             switch (nrChannels) {
                 case 3:
+                    glad_glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
                     glad_glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
-                         0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
-                    );
+                         0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data );
                     break;
                 case 4:
                     glad_glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
-                         0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data
-                    );
+                         0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data );
                     break;
             }
             stbi_image_free(data);
         }
         else {
-            printf("Cubemap tex failed to load at path: %s\n", faces_path[i]);
+            #ifdef DEBUG_INFO
+                printf("WARNING!! DEBUG LOG: Cubemap texture file '%s' not found\n", faces_path[i]);
+            #endif
             stbi_image_free(data);
         }
     }
-    glad_glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glad_glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glad_glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glad_glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glad_glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    #ifdef DEBUG_INFO
+        printf("DEBUG LOG: Cubemap loaded successfully\n");
+    #endif
 
     return cubemap;
 }

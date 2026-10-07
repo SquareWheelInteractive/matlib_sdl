@@ -3,8 +3,8 @@
 #include "engine/node_hierarchy.h"
 #include "matlib/lights.h"
 
-#define WIDTH 600
-#define HEIGHT 480
+#define WIDTH 800
+#define HEIGHT 600
 
 int main() {
     // initialize window
@@ -25,7 +25,7 @@ int main() {
     unsigned int skinning_shader= create_shader_program("./shaders/skinning_vert.glsl", "./shaders/lighting_frag.glsl");
 
     Camera cam = create_and_init_camera(CAMERA_PERSPECTIVE);
-    set_camera_fov(&cam, 80);
+    set_camera_fov(&cam, 65);
 
     Model house = load_model("./resources/medieval_house.obj");
     house.material.shader = light_shader;
