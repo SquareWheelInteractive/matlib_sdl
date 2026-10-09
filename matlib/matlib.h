@@ -40,7 +40,7 @@ typedef struct{
 } Color;
 typedef struct{
     vec3s translation;
-    versors rotation;
+    vec3s rotation;
     vec3s scale;
 } Transform;
 
@@ -100,7 +100,7 @@ void close_window();
 bool window_should_close();
 unsigned int create_shader_program(const char* vs, const char* fs);
 char* get_file_content(const char* fileName);
-void draw_model(Model* mesh, Camera* cam, Color ambient);
+void draw_model(Model* mesh, Camera* cam, Color ambient, unsigned int shadow_map, mat4s lsm);
 void clear_background(Color color);
 void begin_drawing(Camera* cam);
 void end_drawing();

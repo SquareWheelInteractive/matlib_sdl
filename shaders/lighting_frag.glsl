@@ -22,6 +22,7 @@ struct Light {
 };
 
 uniform sampler2D tex;
+uniform sampler2D shadow_map;
 
 uniform Light lights[MAX_LIGHTS];
 
@@ -34,16 +35,31 @@ vec4 fog_color = vec4(0.7, 0.6, 0.66, 1.0);
 
 float exposure = 1.6;
 
+in vec4 frag_pos_light_space;
+
 vec3 reinhard_luminance(vec3 color) {
     float l = dot(color, vec3(0.2126, 0.7152, 0.0722));
     float l_mapped = l / (1.0 + l);
     return color * (l_mapped / max(l, 0.0001));
 }
 
+float shadow_calc(float dot_light_normal){
+    vec3 pos = frag_pos_light_space.xyz * 0.5 + 0.5;
+    if(pos.z > 1.0){
+        pos.z = 1.0;
+    }
+    float depth = texture(shadow_map, pos.xy).r;
+    float bias = max(0.05 * (1.0f - dot_light_normal), 0.005);
+    return (depth + bias) < pos.z ? 0.0 : 1.0f;
+    // return depth < pos.z ? 0.0 : 1.0;
+}
+
 void main() {
     vec3 norm = normalize(normal);
     vec4 texel_color = texture(tex, uv);
     vec4 diffuse = vec4(0);
+
+    float dot_sn;
 
     for (int i = 0; i < MAX_LIGHTS; i++) {
         if (lights[i].enabled == 1) {
@@ -69,13 +85,15 @@ void main() {
             if(lights[i].type == DIRECTIONAL_LIGHT_TYPE){
                 vec3 sun_dir = normalize(-lights[i].direction);
                 float dot_ns = dot(sun_dir, norm);
+                dot_sn = dot_ns;
                 float factor = max(dot_ns, 0.0);
                 diffuse += lights[i].color * factor * lights[i].intensity;
             }
         }
     }
 
-    vec3 phong_color = texel_color.rgb * (ambient + diffuse).rgb;
+    float shadow = shadow_calc(dot_sn);
+    vec3 phong_color = texel_color.rgb * (shadow * diffuse + ambient).rgb;
     phong_color *= exposure;
 
     vec3 tone_mapped = reinhard_luminance(phong_color);
@@ -85,7 +103,6 @@ void main() {
     fog_factor = clamp(fog_factor, 0.0, 1.0);
 
     tone_mapped = mix(fog_color.rgb, tone_mapped, fog_factor);
-
 
     frag_color = vec4(tone_mapped, texel_color.a);
 }

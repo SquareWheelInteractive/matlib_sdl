@@ -9,10 +9,12 @@ layout (location = 4) in vec4 v_weights;
 out vec2 uv;
 out vec3 frag_pos;
 out vec3 normal;
+out vec4 frag_pos_light_space;
 
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
+uniform mat4 light_space_matrix;
 
 const int MAX_BONES= 128; 
 uniform mat4 u_bone_matrices[MAX_BONES];
@@ -42,4 +44,5 @@ void main(){
     normal = mat3(transpose(inverse(model * skinned_mat))) * v_norm; 
     uv = v_uvs;
     frag_pos = vec3(model * skinned_pos);
+    frag_pos_light_space = light_space_matrix * vec4(frag_pos, 1.0);
 }
