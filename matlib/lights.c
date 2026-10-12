@@ -14,24 +14,17 @@ static char* format_text(const char* fmt, ...) {
     return buffer;
 }
 
-/* TODO: this light counting should be the renderer's job,
-   but for now it's ok, this is a reminder to do that
-   at some point */
-static unsigned char light_num = 0;
-Light create_light(int type, vec3s position, Color color, float radious, vec3s direciton){
+Light create_light(int type, vec3s position, Color color, float radious, vec3s direciton, unsigned int id){
     Light light = {0};
-    if(light_num < MAX_LIGHTS){
-        light.id = light_num;
-        light.enabled   = 1;
-        light.type      = type;
-        light.direction = direciton;
-        light.position  = position;
-        light.color     = color;
-        light.intensity = 1;
-        light.radius    = radious;
+    light.id = id;
+    light.enabled   = 1;
+    light.type      = type;
+    light.direction = direciton;
+    light.position  = position;
+    light.color     = color;
+    light.intensity = 1;
+    light.radius    = radious;
 
-        light_num++;
-    }
     return light;
 }
 void update_light_values(Light light, unsigned int shader){
