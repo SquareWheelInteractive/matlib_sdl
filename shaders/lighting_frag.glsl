@@ -50,16 +50,13 @@ float shadow_calc(float dot_light_normal){
     }
     float depth = texture(shadow_map, pos.xy).r;
     float bias = max(0.05 * (1.0f - dot_light_normal), 0.005);
-    return (depth + bias) < pos.z ? 0.0 : 1.0f;
-    // return depth < pos.z ? 0.0 : 1.0;
+    return (pos.z - bias) > depth ? 0.0 : 1.0f;
 }
 
 void main() {
     vec3 norm = normalize(normal);
     vec4 texel_color = texture(tex, uv);
     vec4 diffuse = vec4(0);
-
-    float dot_sn;
 
     for (int i = 0; i < MAX_LIGHTS; i++) {
         if (lights[i].enabled == 1) {
@@ -70,7 +67,13 @@ void main() {
             float distance = length(lights[i].position - frag_pos);
             float attenuation = (lights[i].radius - distance) / (lights[i].radius + distance);
             attenuation = clamp(attenuation, 0, 1);
-
+            if(lights[i].type == DIRECTIONAL_LIGHT_TYPE){
+                vec3 sun_dir = normalize(-lights[i].direction);
+                float dot_ns = dot(sun_dir, norm);
+                float factor = max(dot_ns, 0.0);
+                float shadow = factor > 0.0 ? shadow_calc(dot_ns) : 1.0;
+                diffuse += lights[i].color * factor * lights[i].intensity * shadow;
+            }
             if(lights[i].type == POINT_LIGHT_TYPE){
                 diffuse += lights[i].color* dot_nl * attenuation * lights[i].intensity;
             }
@@ -82,18 +85,10 @@ void main() {
                     diffuse += (lights[i].color * dot_nl * attenuation) * smoothness * lights[i].intensity;
                 }
             }
-            if(lights[i].type == DIRECTIONAL_LIGHT_TYPE){
-                vec3 sun_dir = normalize(-lights[i].direction);
-                float dot_ns = dot(sun_dir, norm);
-                dot_sn = dot_ns;
-                float factor = max(dot_ns, 0.0);
-                diffuse += lights[i].color * factor * lights[i].intensity;
-            }
         }
     }
 
-    float shadow = shadow_calc(dot_sn);
-    vec3 phong_color = texel_color.rgb * (shadow * diffuse + ambient).rgb;
+    vec3 phong_color = texel_color.rgb * (diffuse + ambient).rgb;
     phong_color *= exposure;
 
     vec3 tone_mapped = reinhard_luminance(phong_color);

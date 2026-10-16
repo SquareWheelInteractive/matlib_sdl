@@ -16,8 +16,9 @@ uniform mat4 view;
 uniform mat4 projection;
 uniform mat4 light_space_matrix;
 
-const int MAX_BONES= 128; 
+const int MAX_BONES = 128; 
 uniform mat4 u_bone_matrices[MAX_BONES];
+uniform bool is_skinned;
 
 mat4 calc_skinning_mat(){
 	vec4 weights = v_weights;
@@ -37,7 +38,7 @@ mat4 calc_skinning_mat(){
     return skin_matrix;
 }
 void main(){
-	mat4 skinned_mat = calc_skinning_mat();
+	mat4 skinned_mat = is_skinned ? calc_skinning_mat() : mat4(1.0);
 	vec4 skinned_pos = skinned_mat * vec4(v_pos, 1.0);
     gl_Position = projection * view * model * skinned_pos;
 

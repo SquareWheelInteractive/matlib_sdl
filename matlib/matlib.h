@@ -11,6 +11,7 @@
 #define BLACK (Color){0.1f, 0.1f, 0.1f, 1.0f}
 #define WHITE (Color){0.92f, 0.92f, 0.92f, 1.0f}
 #define GRAY (Color){0.25f, 0.25f, 0.25f, 1.0f}
+#define YELLOW (Color){1.0f, 1.0f, 0.0f, 1.0f}
 
 typedef enum{
     ATTRIB_POSITION   = 0x0,
@@ -81,7 +82,6 @@ typedef struct {
 
 typedef struct{
     Texture albedo;
-    unsigned int shader;
 } Material;
 
 typedef struct{
@@ -93,6 +93,7 @@ typedef struct{
     unsigned int mesh_count;
 
     Skeleton skeleton;
+    bool is_skinned;
 } Model;
 
 bool init_window(const char* app_name, int width, int height);
@@ -100,7 +101,7 @@ void close_window();
 bool window_should_close();
 unsigned int create_shader_program(const char* vs, const char* fs);
 char* get_file_content(const char* fileName);
-void draw_model(Model* mesh, Camera* cam, Color ambient, unsigned int shadow_map, mat4s lsm);
+void draw_model(Model* mesh, unsigned int shader);
 void clear_background(Color color);
 void begin_drawing(Camera* cam);
 void end_drawing();
@@ -114,7 +115,7 @@ Mesh load_mesh_obj(const char* path);
 Mesh load_mesh_gltf(const char* filename, cgltf_data* data, unsigned int primitive_index);
 Model load_model(const char* file_name);
 void free_model(Model* model);
-void update_model_animation(Model* model, int anim_index, float dt);
+void update_model_animation(Model* model, int anim_index, float dt, unsigned int skinning_shader);
 CubeMap load_cubemap(char** faces_path);
 void draw_cubemap(CubeMap cubemap, Camera camera);
 void set_camera_fov(Camera* camera, float fov);

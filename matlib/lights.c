@@ -16,7 +16,7 @@ static char* format_text(const char* fmt, ...) {
 
 Light create_light(int type, vec3s position, Color color, float radious, vec3s direciton, unsigned int id){
     Light light = {0};
-    light.id = id;
+    light.id        = id;
     light.enabled   = 1;
     light.type      = type;
     light.direction = direciton;

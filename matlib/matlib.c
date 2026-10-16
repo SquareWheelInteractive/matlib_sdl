@@ -1,4 +1,4 @@
-#include "matlib.h"
+#include "matlib/matlib.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include "glad/glad.h"
@@ -119,30 +119,18 @@ static int is_file_extension(const char* filename, const char* extension) {
     return strcmp(filename + file_len - ext_len, extension) == 0;
 }
 
-void draw_model(Model* model, Camera* cam, Color ambient, unsigned int shadow_map, mat4s light_sm){
-    if(!model || !cam || !model->meshes) return;
+void draw_model(Model* model, unsigned int shader){
+    if(!model || !model->meshes) return;
 
-    glad_glUseProgram(model->material.shader);
-
-    unsigned int model_loc    = glad_glGetUniformLocation(model->material.shader, "model");
-    unsigned int view_loc     = glad_glGetUniformLocation(model->material.shader, "view");
-    unsigned int proj_loc     = glad_glGetUniformLocation(model->material.shader, "projection");
-    unsigned int light_space_matxi = glad_glGetUniformLocation(model->material.shader, "light_space_matrix");
-    unsigned int ambient_loc  = glad_glGetUniformLocation(model->material.shader, "ambient");
-    unsigned int view_pos_loc = glad_glGetUniformLocation(model->material.shader, "view_pos");
+    unsigned int model_loc = glad_glGetUniformLocation(shader, "model");
+    unsigned int is_skinned_loc = glad_glGetUniformLocation(shader, "is_skinned");
 
     glad_glUniformMatrix4fv(model_loc, 1, GL_FALSE, (const float*)model->transform.raw);
-    glad_glUniformMatrix4fv(view_loc , 1, GL_FALSE, (const float*)cam->view_matrix.raw);
-    glad_glUniformMatrix4fv(proj_loc , 1, GL_FALSE, (const float*)cam->proj_matrix.raw);
-    glad_glUniform4f(ambient_loc, ambient.r, ambient.g, ambient.b, ambient.a);
-    glad_glUniform3f(view_pos_loc, cam->position.x, cam->position.y, cam->position.z);
-    glad_glUniformMatrix4fv(light_space_matxi, 1, GL_FALSE, (const float*)light_sm.raw);
+    glad_glUniform1i(is_skinned_loc, model->is_skinned);
 
     if(model->material.albedo.id > 0){
         glad_glActiveTexture(GL_TEXTURE0);
         glad_glBindTexture(GL_TEXTURE_2D, model->material.albedo.id);
-        glad_glActiveTexture(GL_TEXTURE1);
-        glad_glBindTexture(GL_TEXTURE_2D, shadow_map);
     }
 
     for (size_t i = 0; i < model->mesh_count; i++) {
@@ -155,7 +143,6 @@ void draw_model(Model* model, Camera* cam, Color ambient, unsigned int shadow_ma
         glad_glBindVertexArray(0);
     }
     glad_glBindTexture(GL_TEXTURE_2D, 0);
-    glad_glUseProgram(0);
 }
 
 void free_model(Model* model){
@@ -315,18 +302,19 @@ Mesh load_mesh_gltf(const char* filename, cgltf_data* data, unsigned int primiti
 Model load_model(const char* file_name){
     Model model_out = {0};
     model_out.transform = glms_mat4_identity();
-    model_out.material.shader = 0;
     model_out.material.albedo = (Texture){0};
     model_out.skeleton = (Skeleton){0};
     model_out.meshes = NULL;
     model_out.mesh_count = 0;
 
     if(is_file_extension(file_name , ".obj")){
+        model_out.is_skinned = false;
         model_out.meshes = malloc(sizeof(Model));
         model_out.mesh_count = 1;
         model_out.meshes[0] = load_mesh_obj(file_name);
     }
     if(is_file_extension(file_name, ".glb") || is_file_extension(file_name, ".gltf")){
+        model_out.is_skinned = true;
         cgltf_options options = {0};
         cgltf_data* data = NULL;
     
@@ -728,14 +716,14 @@ float get_frame_time(){
 /* ----------------------------------------------------------------------------------------
     Animates model skeleton, calculates final bone matrices and upload them to GPU 
    ----------------------------------------------------------------------------------------*/
-void update_model_animation(Model* model, int anim_index, float dt){
+void update_model_animation(Model* model, int anim_index, float dt, unsigned int skinning_shader){
     model->skeleton.anim_state.clip_index = anim_index;
     float t = skeleton_advance(&model->skeleton, dt);
     skeleton_update(&model->skeleton, t);
+    
+    glad_glUseProgram(skinning_shader);
 
-    glad_glUseProgram(model->material.shader);
-
-    int loc = glad_glGetUniformLocation(model->material.shader, "u_bone_matrices");
+    int loc = glad_glGetUniformLocation(skinning_shader, "u_bone_matrices");
 
     if (loc != -1) {
         glad_glUniformMatrix4fv(

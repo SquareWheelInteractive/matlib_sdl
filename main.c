@@ -1,7 +1,6 @@
 #include "matlib/matlib.h"
 #include "glad/glad.h"
 #include "matlib/lights.h"
-#include "matlib/global.h"
 
 #include "renderer/renderer.h"
 
@@ -21,7 +20,6 @@ int main() {
         "resources/sky_sunset/front.png",
         "resources/sky_sunset/back.png"
     };
-    CubeMap cube_map = load_cubemap(sky_box_textures);
 
     Camera cam = create_and_init_camera(CAMERA_PERSPECTIVE);
     set_camera_fov(&cam, 65);
@@ -29,74 +27,43 @@ int main() {
     Renderer renderer;
     renderer_init(&renderer, &cam);
 
+    renderer_load_cube_map(&renderer, sky_box_textures);
+
     Model house = load_model("./resources/medieval_house.obj");
-    house.material.shader = renderer.lighting_shader;
     house.material.albedo = load_texture("./resources/houseTexture.png");
 
-    Light light = create_light(LIGHT_TYPE_SPOT, (vec3s){3,1,0}, WHITE, 5, glms_vec3_zero(), 0);
-    Light sun = create_light(LIGHT_TYPE_DIRECTIONAL, (vec3s){10,10,0}, (Color){0.8f,0.75f,0.65f,1}, 0, (vec3s){-1,-1,0}, 1);
-    light.intensity = 4;
+    int light_id  = renderer_create_light(&renderer, LIGHT_TYPE_SPOT, (vec3s){0,1,1}, YELLOW, 4, GLMS_VEC3_ONE);
+    int sun_id = renderer_create_light(&renderer, LIGHT_TYPE_DIRECTIONAL, (vec3s){10,10,0}, (Color){0.8f,0.75f,0.65f,1}, 1, (vec3s){-1,-1,0});
 
     Model man = load_model("./resources/CesiumMan.glb");
-    man.material.shader = renderer.skinning_shader;
     man.material.albedo = load_texture("./resources/CesiumMan_img0.jpg");
 
     man.transform = glms_translate(glms_mat4_identity(), (vec3s){3, 2, -2});
     man.transform = glms_rotate_y(man.transform, 90*DEG2RAD);
+
+    Model models[] = {house, man};
     
     //main loop
     while (!window_should_close()) {
         double dt = get_frame_time();
 
-        light.position = cam.position;
-        light.direction = glms_vec3_sub(cam.target, cam.position);
+        Light* light = &renderer.lights[light_id];
+        light->position = cam.position;
+        light->direction = glms_vec3_sub(cam.target, cam.position);
 
         camera_move(&cam, 0.2f, 2.0f, dt);
         // 9 is f key
         if(is_key_pressed_once(9)){
-            light.enabled = !light.enabled;
+            light->enabled = !light->enabled;
         }
 
-        update_model_animation(&man, 0, dt);
+        update_model_animation(&man, 0, dt, renderer.skinning_shader);
 
-        update_light_values(light, renderer.lighting_shader);
-        update_light_values(sun, renderer.lighting_shader);
-        update_light_values(light, renderer.skinning_shader);
-        update_light_values(sun, renderer.skinning_shader);
+        update_light_values(renderer.lights[light_id], renderer.skinning_shader);
+        update_light_values(renderer.lights[sun_id], renderer.skinning_shader);
 
-        // shadow pass
-        glad_glCullFace(GL_FRONT);
-        mat4s light_projection = glms_ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 20.0f);
-        mat4s light_view = glms_lookat(sun.position, (vec3s){0,0,0}, (vec3s){0,1,0});
-        mat4s light_space_matrix = glms_mat4_mul(light_projection, light_view);
-        glad_glUseProgram(renderer.shadow_map_shader);
-        unsigned int light_space_matrix_loc = glad_glGetUniformLocation(renderer.shadow_map_shader, "light_space_matrix");
-        glad_glUniformMatrix4fv(light_space_matrix_loc, 1, GL_FALSE, (const float*)light_space_matrix.raw);
-        glad_glViewport(0,0, SHADOW_MAP_WIDTH, SHADOW_MAP_HEIGHT);
-        glad_glBindFramebuffer(GL_FRAMEBUFFER, renderer.shadow_map_fbo);
-        glad_glClear(GL_DEPTH_BUFFER_BIT);
-        glad_glBindTexture(GL_TEXTURE_2D, renderer.shadow_map_texture);
-        house.material.shader = renderer.shadow_map_shader;
-        man.material.shader = renderer.shadow_map_shader;
-        draw_model(&house, &cam, (Color){0.7f, 0.65f, 0.75f, 1}, renderer.shadow_map_texture, light_space_matrix);
-        draw_model(&man, &cam, (Color){0.7f, 0.65f, 0.75f, 1}, renderer.shadow_map_texture, light_space_matrix);
-
-        glad_glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        begin_drawing(&cam);
-        clear_background(BLACK);
-
-        // normal pass
-        glad_glCullFace(GL_BACK);
-        glad_glViewport(0,0, global.window_context.screen_width, global.window_context.screen_height);
-        house.material.shader = renderer.lighting_shader;
-        man.material.shader = renderer.skinning_shader;
-        draw_model(&house, &cam, (Color){0.7f, 0.65f, 0.75f, 1}, renderer.shadow_map_texture, light_space_matrix);
-        draw_model(&man, &cam, (Color){0.7f, 0.65f, 0.75f, 1}, renderer.shadow_map_texture, light_space_matrix);
-
-        draw_cubemap(cube_map, cam);
-
-        end_drawing();
+        renderer_shadow_pass(&renderer, models, 2);
+        renderer_normal_pass(&renderer, models, 2);
     }
 
     free_model(&house);
