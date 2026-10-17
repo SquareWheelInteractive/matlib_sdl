@@ -7,7 +7,8 @@ void renderer_init(Renderer* renderer, Camera* main_camera){
         renderer->lights[i].id = INVALID_LIGHT;
     }
     renderer->light_count = 0;
-    renderer->fog = (Fog){0};
+    renderer->fog = (Fog){SKY_BLUE, 0.08f};
+    renderer->ambient = WHITE;
 
     renderer->main_camera = main_camera;   
 
@@ -84,16 +85,22 @@ void renderer_normal_pass(Renderer* renderer, Model* models, unsigned int model_
     glad_glViewport(0,0, global.window_context.screen_width, global.window_context.screen_height);
     unsigned int view_loc     = glad_glGetUniformLocation(renderer->skinning_shader, "view");
     unsigned int proj_loc     = glad_glGetUniformLocation(renderer->skinning_shader, "projection");
-    unsigned int ambient_loc  = glad_glGetUniformLocation(renderer->skinning_shader, "ambient");
     unsigned int view_pos_loc = glad_glGetUniformLocation(renderer->skinning_shader, "view_pos");
     unsigned int light_space_matrix_loc = glad_glGetUniformLocation(renderer->skinning_shader, "light_space_matrix");
-    Color ambient = (Color){0.7f, 0.65f, 0.75f, 1};
+    unsigned int ambient_loc  = glad_glGetUniformLocation(renderer->skinning_shader, "ambient");
+    unsigned int fog_density_loc = glad_glGetUniformLocation(renderer->skinning_shader, "fog.density");
+    unsigned int fog_color_loc = glad_glGetUniformLocation(renderer->skinning_shader, "fog.color");
+    Color ambient = renderer->ambient;
+    Color fog_color = renderer->fog.color;
+    float fog_density = renderer->fog.density;
 
     glad_glUniformMatrix4fv(view_loc , 1, GL_FALSE, (const float*)renderer->main_camera->view_matrix.raw);
     glad_glUniformMatrix4fv(proj_loc , 1, GL_FALSE, (const float*)renderer->main_camera->proj_matrix.raw);
     glad_glUniform4f(ambient_loc, ambient.r, ambient.g, ambient.b, ambient.a);
     glad_glUniform3f(view_pos_loc, renderer->main_camera->position.x, renderer->main_camera->position.y, renderer->main_camera->position.z);
     glad_glUniformMatrix4fv(light_space_matrix_loc, 1, GL_FALSE, (const float*)renderer->light_space_matrix.raw);
+    glad_glUniform4f(fog_color_loc, fog_color.r, fog_color.g, fog_color.b, fog_color.a);
+    glad_glUniform1f(fog_density_loc, fog_density);
 
     glad_glActiveTexture(GL_TEXTURE1);
     glad_glBindTexture(GL_TEXTURE_2D, renderer->shadow_map_texture);

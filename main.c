@@ -32,8 +32,12 @@ int main() {
     Model house = load_model("./resources/medieval_house.obj");
     house.material.albedo = load_texture("./resources/houseTexture.png");
 
-    int light_id  = renderer_create_light(&renderer, LIGHT_TYPE_SPOT, (vec3s){0,1,1}, YELLOW, 4, GLMS_VEC3_ONE);
+    Model ground = load_model("./resources/ground.obj");
+    ground.material.albedo = load_texture("./resources/grass.png");
+
+    int light_id  = renderer_create_light(&renderer, LIGHT_TYPE_SPOT, (vec3s){0,1,1}, RED, 4, GLMS_VEC3_ONE);
     int sun_id = renderer_create_light(&renderer, LIGHT_TYPE_DIRECTIONAL, (vec3s){10,10,0}, (Color){0.8f,0.75f,0.65f,1}, 1, (vec3s){-1,-1,0});
+    Light* sun = &renderer.lights[sun_id];
 
     Model man = load_model("./resources/CesiumMan.glb");
     man.material.albedo = load_texture("./resources/CesiumMan_img0.jpg");
@@ -41,11 +45,20 @@ int main() {
     man.transform = glms_translate(glms_mat4_identity(), (vec3s){3, 2, -2});
     man.transform = glms_rotate_y(man.transform, 90*DEG2RAD);
 
-    Model models[] = {house, man};
+    Model models[] = {ground,house, man};
     
+    renderer.ambient = (Color){0.7f, 0.69f, 0.63f, 1.0f};
+    renderer.fog.color = (Color){0.7f, 0.6f, 0.66f, 1.0f};
+    float time = 0;
     //main loop
     while (!window_should_close()) {
         double dt = get_frame_time();
+        time += dt;
+
+        sun->direction.x = cosf(time * 0.5f);
+        sun->direction.y = cosf(time * 0.5f) - 1;
+        sun->direction.z = sinf(time * 0.5f);
+        sun->position = glms_vec3_scale(glms_vec3_normalize(sun->direction), -10.0f);
 
         Light* light = &renderer.lights[light_id];
         light->position = cam.position;
@@ -62,8 +75,8 @@ int main() {
         update_light_values(renderer.lights[light_id], renderer.skinning_shader);
         update_light_values(renderer.lights[sun_id], renderer.skinning_shader);
 
-        renderer_shadow_pass(&renderer, models, 2);
-        renderer_normal_pass(&renderer, models, 2);
+        renderer_shadow_pass(&renderer, models, 3);
+        renderer_normal_pass(&renderer, models, 3);
     }
 
     free_model(&house);

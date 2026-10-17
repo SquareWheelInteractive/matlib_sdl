@@ -20,6 +20,10 @@ struct Light {
     float intensity;
     float radius;
 };
+struct Fog{
+    vec4 color;
+    float density;  
+};
 
 uniform sampler2D tex;
 uniform sampler2D shadow_map;
@@ -30,8 +34,7 @@ uniform vec4 ambient;
 
 uniform vec3 view_pos;
 
-float fog_density = 0.08;
-vec4 fog_color = vec4(0.7, 0.6, 0.66, 1.0);
+uniform Fog fog;
 
 float exposure = 1.6;
 
@@ -49,7 +52,7 @@ float shadow_calc(float dot_light_normal){
         pos.z = 1.0;
     }
     float depth = texture(shadow_map, pos.xy).r;
-    float bias = max(0.05 * (1.0f - dot_light_normal), 0.005);
+    float bias = max(0.01 * (1.0f - dot_light_normal), 0.005);
     return (pos.z - bias) > depth ? 0.0 : 1.0f;
 }
 
@@ -94,10 +97,10 @@ void main() {
     vec3 tone_mapped = reinhard_luminance(phong_color);
 
     float dist = length(view_pos - frag_pos);
-    float fog_factor= 1.0/exp((dist*fog_density)*(dist*fog_density));
+    float fog_factor = 1.0 / exp((dist * fog.density) * (dist * fog.density));
     fog_factor = clamp(fog_factor, 0.0, 1.0);
 
-    tone_mapped = mix(fog_color.rgb, tone_mapped, fog_factor);
+    tone_mapped = mix(fog.color.rgb, tone_mapped, fog_factor);
 
     frag_color = vec4(tone_mapped, texel_color.a);
 }

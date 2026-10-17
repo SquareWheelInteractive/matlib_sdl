@@ -39,11 +39,11 @@ mat4 calc_skinning_mat(){
 }
 void main(){
 	mat4 skinned_mat = is_skinned ? calc_skinning_mat() : mat4(1.0);
-	vec4 skinned_pos = skinned_mat * vec4(v_pos, 1.0);
-    gl_Position = projection * view * model * skinned_pos;
+	vec4 local_pos = skinned_mat * vec4(v_pos, 1.0);
+    gl_Position = projection * view * model * local_pos;
 
     normal = mat3(transpose(inverse(model * skinned_mat))) * v_norm; 
     uv = v_uvs;
-    frag_pos = vec3(model * skinned_pos);
+    frag_pos = vec3(model * local_pos);
     frag_pos_light_space = light_space_matrix * vec4(frag_pos, 1.0);
 }

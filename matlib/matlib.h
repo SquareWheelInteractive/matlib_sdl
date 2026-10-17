@@ -8,10 +8,13 @@
 #define RAD2DEG 57.295791f
 
 #define SKY_BLUE (Color){0.45f, 0.65f, 0.86f, 1.0f}
-#define BLACK (Color){0.1f, 0.1f, 0.1f, 1.0f}
+#define BLACK (Color){0.05f, 0.05f, 0.05f, 1.0f}
 #define WHITE (Color){0.92f, 0.92f, 0.92f, 1.0f}
 #define GRAY (Color){0.25f, 0.25f, 0.25f, 1.0f}
 #define YELLOW (Color){1.0f, 1.0f, 0.0f, 1.0f}
+#define RED (Color){1.0f, 0.0f, 0.0f, 1.0f}
+#define BLUE (Color){0.0f, 0.0f, 1.0f, 1.0f}
+#define GREEN (Color){0.0f, 1.0f, 0.0f, 1.0f}
 
 typedef enum{
     ATTRIB_POSITION   = 0x0,
