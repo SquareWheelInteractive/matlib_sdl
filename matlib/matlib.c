@@ -74,9 +74,13 @@ bool init_window(const char* app_name, int width, int height){
 }
 
 bool window_should_close(){
-    global.input.is_event_down  = false;
-    global.input.is_evenet_up   = false;
+     global.input.is_event_down = false;
+    global.input.is_event_up = false;
     global.window_context.has_resized = false;
+    global.input.mouse.wheel.delta_x = 0;
+    global.input.mouse.wheel.delta_y = 0;
+    global.input.mouse.rel_x = 0;
+    global.input.mouse.rel_y = 0;
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -89,16 +93,34 @@ bool window_should_close(){
                 global.input.scan_code = event.key.scancode;
                 break;
             case SDL_EVENT_KEY_UP:
-                global.input.is_evenet_up = true;
+                global.input.is_event_up = true;
                 global.input.scan_code = event.key.scancode;
                 break;
             case SDL_EVENT_WINDOW_RESIZED:
                 global.window_context.screen_width = event.window.data1;
-                global.window_context.screen_height= event.window.data2;
+                global.window_context.screen_height = event.window.data2;
                 global.window_context.has_resized = true;
+                break;
+            case SDL_EVENT_MOUSE_WHEEL:
+                global.input.mouse.wheel.delta_x = event.wheel.x;
+                global.input.mouse.wheel.delta_y = event.wheel.y;
+                break;
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                global.input.mouse.button_is_pressed = event.button.down;
+                global.input.mouse.button_idx = event.button.button;
+                break;
+            case SDL_EVENT_MOUSE_BUTTON_UP:
+                global.input.mouse.button_is_pressed = event.button.down;
+                global.input.mouse.button_idx = event.button.button;
+                break;
+            case SDL_EVENT_MOUSE_MOTION:
+                global.input.mouse.rel_x = event.motion.xrel;
+                global.input.mouse.rel_y = event.motion.yrel;
                 break;
         }
     }
+
+    global.input.keyboard.keys = SDL_GetKeyboardState(NULL);
     return false;
 }
 
@@ -464,7 +486,7 @@ bool is_key_pressed_once(SDL_Scancode scan_code){
             return true;
         }
     }
-    if(global.input.is_evenet_up && key_is_pressed[scan_code] == true){
+    if(global.input.is_event_up && key_is_pressed[scan_code] == true){
         if(global.input.scan_code == scan_code){
             key_is_pressed[scan_code] = false;
             return false;
