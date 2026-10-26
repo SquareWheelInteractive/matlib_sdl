@@ -1,6 +1,5 @@
 #include "matlib/matlib.h"
 #include "glad/glad.h"
-#include "engine/node_hierarchy.h"
 #include "matlib/lights.h"
 
 #define WIDTH 800
@@ -31,13 +30,6 @@ int main() {
     house.material.shader = light_shader;
     house.material.albedo = load_texture("./resources/houseTexture.png");
 
-    Node root = init_node();
-    Node house_node = init_node();
-
-    house_node.model = house;
-
-    set_child(&root, &house_node);
-
     Light light = create_light(LIGHT_TYPE_SPOT, (vec3s){3,1,0}, WHITE, 5, glms_vec3_zero());
     Light sun = create_light(LIGHT_TYPE_DIRECTIONAL, glms_vec3_zero(), (Color){0.8f,0.75f,0.65f,1}, 0, (vec3s){-1,-1,0});
     light.intensity = 4;
@@ -61,8 +53,6 @@ int main() {
 
         update_model_animation(&man, 0, dt);
 
-        update_node_transform_hierarchy(&root);
-
         update_light_values(light, light_shader);
         update_light_values(sun, light_shader);
         update_light_values(light, skinning_shader);
@@ -71,7 +61,7 @@ int main() {
         begin_drawing(&cam);
         clear_background(BLACK);
 
-        draw_node(&root, &cam, (Color){0.7f, 0.65f, 0.75f, 1});
+        draw_model(&house, &cam, (Color){0.7f, 0.65f, 0.75f, 1});
         draw_model(&man, &cam, (Color){0.7f, 0.65f, 0.75f, 1});
 
         draw_cubemap(cube_map, cam);
