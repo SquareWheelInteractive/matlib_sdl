@@ -479,15 +479,15 @@ void free_mesh(Mesh* mesh){
 /* - - - Input related - - - */
 
 static bool key_is_pressed[128];
-bool is_key_pressed_once(SDL_Scancode scan_code){
+bool is_key_pressed_once(KeyCode scan_code){
     if(global.input.is_event_down && key_is_pressed[scan_code] == false){
-        if(global.input.scan_code == scan_code){
+        if(global.input.scan_code == (SDL_Scancode)scan_code){
             key_is_pressed[scan_code] = true;
             return true;
         }
     }
     if(global.input.is_event_up && key_is_pressed[scan_code] == true){
-        if(global.input.scan_code == scan_code){
+        if(global.input.scan_code == (SDL_Scancode)scan_code){
             key_is_pressed[scan_code] = false;
             return false;
         }
@@ -687,7 +687,7 @@ static bool cursor_captured = false;
 vec3s smooth_target = GLMS_VEC3_ZERO;
 void camera_move(Camera* camera, float sens, float move_speed, float dt){
     SDL_SetWindowRelativeMouseMode(global.window_context.window, cursor_captured);
-    if(is_key_pressed_once(SDL_SCANCODE_ESCAPE)){
+    if(is_key_pressed_once(KEY_CODE_ESCAPE)){
         cursor_captured = !cursor_captured;
     }
 

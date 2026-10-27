@@ -1,8 +1,6 @@
 #pragma once
 #include "matlib.h"
 
-#define MAX_LIGHTS 4
-
 typedef enum{
     LIGHT_TYPE_POINT        = 0,
     LIGHT_TYPE_SPOT         = 1,
@@ -17,8 +15,8 @@ typedef struct{
     Color color;
     float intensity;
     bool enabled;
-    float radius;
+    float range;
 } Light;
 
-Light create_light(int type, vec3s position, Color color, float radious, vec3s direction);
+Light create_light(int type, vec3s position, Color color, float range, vec3s direction, int id);
 void update_light_values(Light light, unsigned int shader);

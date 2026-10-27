@@ -30,8 +30,8 @@ int main() {
     house.material.shader = light_shader;
     house.material.albedo = load_texture("./resources/houseTexture.png");
 
-    Light light = create_light(LIGHT_TYPE_SPOT, (vec3s){3,1,0}, WHITE, 5, glms_vec3_zero());
-    Light sun = create_light(LIGHT_TYPE_DIRECTIONAL, glms_vec3_zero(), (Color){0.8f,0.75f,0.65f,1}, 0, (vec3s){-1,-1,0});
+    Light light = create_light(LIGHT_TYPE_SPOT, (vec3s){3,1,0}, WHITE, 5, glms_vec3_zero(), 0);
+    Light sun = create_light(LIGHT_TYPE_DIRECTIONAL, glms_vec3_zero(), (Color){0.8f,0.75f,0.65f,1}, 0, (vec3s){-1,-1,0}, 1);
     light.intensity = 4;
 
     Model man = load_model("./resources/CesiumMan.glb");
@@ -43,8 +43,7 @@ int main() {
         light.position = cam.position;
         light.direction = glms_vec3_sub(cam.target, cam.position);
 
-        // 9 is f key
-        if(is_key_pressed_once(9)){
+        if(is_key_pressed_once(KEY_CODE_F)){
             light.enabled = !light.enabled;
         }
 

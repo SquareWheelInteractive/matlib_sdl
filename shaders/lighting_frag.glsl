@@ -18,7 +18,7 @@ struct Light {
     vec3 position;
     vec4 color;
     float intensity;
-    float radius;
+    float range;
 };
 
 uniform sampler2D tex;
@@ -52,7 +52,7 @@ void main() {
             float dot_nl = max(dot(norm, dir_to_light), 0.0);
 
             float distance = length(lights[i].position - frag_pos);
-            float attenuation = (lights[i].radius - distance) / (lights[i].radius + distance);
+            float attenuation = (lights[i].range - distance) / (lights[i].range + distance);
             attenuation = clamp(attenuation, 0, 1);
 
             if(lights[i].type == POINT_LIGHT_TYPE){
@@ -85,7 +85,6 @@ void main() {
     fog_factor = clamp(fog_factor, 0.0, 1.0);
 
     tone_mapped = mix(fog_color.rgb, tone_mapped, fog_factor);
-
 
     frag_color = vec4(tone_mapped, texel_color.a);
 }
