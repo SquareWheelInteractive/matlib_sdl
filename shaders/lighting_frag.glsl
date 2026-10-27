@@ -6,7 +6,7 @@ in vec2 uv;
 in vec3 frag_pos;
 in vec3 normal;
 
-#define MAX_LIGHTS 4
+#define MAX_LIGHTS 16
 #define POINT_LIGHT_TYPE 0
 #define SPOT_LIGHT_TYPE 1
 #define DIRECTIONAL_LIGHT_TYPE 2
@@ -18,7 +18,7 @@ struct Light {
     vec3 position;
     vec4 color;
     float intensity;
-    float radius;
+    float range;
 };
 struct Fog{
     vec4 color;
@@ -68,7 +68,7 @@ void main() {
             float dot_nl = max(dot(norm, dir_to_light), 0.0);
 
             float distance = length(lights[i].position - frag_pos);
-            float attenuation = (lights[i].radius - distance) / (lights[i].radius + distance);
+            float attenuation = (lights[i].range - distance) / (lights[i].range + distance);
             attenuation = clamp(attenuation, 0, 1);
             if(lights[i].type == DIRECTIONAL_LIGHT_TYPE){
                 vec3 sun_dir = normalize(-lights[i].direction);

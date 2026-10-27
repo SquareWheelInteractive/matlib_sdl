@@ -111,15 +111,13 @@ void renderer_normal_pass(Renderer* renderer, Model* models, unsigned int model_
 
     if(renderer->cube_map.cubemap_tex > 0)
         draw_cubemap(renderer->cube_map, *renderer->main_camera);
-
-    end_drawing();
 }
 
 void renderer_load_cube_map(Renderer* renderer, char** faces_path){
     renderer->cube_map = load_cubemap(faces_path);
 }
 
-unsigned int renderer_create_light(Renderer* renderer, int type, vec3s position, Color color, float radius, vec3s direction){
+unsigned int renderer_create_light(Renderer* renderer, int type, vec3s position, Color color, float range, vec3s direction){
     if (renderer->light_count >= MAX_LIGHTS)
         return INVALID_LIGHT;
 
@@ -129,10 +127,20 @@ unsigned int renderer_create_light(Renderer* renderer, int type, vec3s position,
         type,
         position,
         color,
-        radius,
+        range,
         direction,
         id
     );
 
     return id;
+}
+
+void renderer_update_lights(Renderer* renderer){
+    for (unsigned int i = 0; i < renderer->light_count; i++) {
+        Light* light = &renderer->lights[i];
+
+        if(light->id < 0 || light->id >= MAX_LIGHTS) continue;
+
+        update_light_values(*light, renderer->skinning_shader);
+    }
 }

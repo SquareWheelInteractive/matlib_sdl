@@ -15,8 +15,8 @@ typedef struct{
     Color color;
     float intensity;
     bool enabled;
-    float radius;
+    float range;
 } Light;
 
-Light create_light(int type, vec3s position, Color color, float radious, vec3s direction, unsigned int id);
+Light create_light(int type, vec3s position, Color color, float range, vec3s direction, unsigned int id);
 void update_light_values(Light light, unsigned int shader);

@@ -101,7 +101,8 @@ typedef struct{
 
 bool init_window(const char* app_name, int width, int height);
 void close_window();
-bool window_should_close();
+struct nk_context;
+bool window_should_close(struct nk_context* ctx);
 unsigned int create_shader_program(const char* vs, const char* fs);
 char* get_file_content(const char* fileName);
 void draw_model(Model* mesh, unsigned int shader);
@@ -122,3 +123,4 @@ void update_model_animation(Model* model, int anim_index, float dt, unsigned int
 CubeMap load_cubemap(char** faces_path);
 void draw_cubemap(CubeMap cubemap, Camera camera);
 void set_camera_fov(Camera* camera, float fov);
+void set_default_gl_state();

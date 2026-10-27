@@ -11,6 +11,8 @@
 #include "skeleton.h"
 #include "global.h"
 
+#include "Nuklear/nuklear.h"
+#include "Nuklear/nuklear_sdl3_gl3.h"
 Global global;
 
 void set_default_gl_state(){
@@ -73,12 +75,13 @@ bool init_window(const char* app_name, int width, int height){
     return 1;
 }
 
-bool window_should_close(){
+bool window_should_close(struct nk_context* ctx){
     global.input.is_event_down  = false;
     global.input.is_evenet_up   = false;
     global.window_context.has_resized = false;
 
     SDL_Event event;
+    nk_input_begin(ctx);
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
             case SDL_EVENT_QUIT:
@@ -98,7 +101,10 @@ bool window_should_close(){
                 global.window_context.has_resized = true;
                 break;
         }
+        nk_sdl_handle_event(&event);
     }
+    nk_sdl_handle_grab();
+    nk_input_end(ctx);
     return false;
 }
 

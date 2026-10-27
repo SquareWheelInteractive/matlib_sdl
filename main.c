@@ -1,11 +1,14 @@
-#include "matlib/matlib.h"
 #include "glad/glad.h"
+#include "matlib/matlib.h"
 #include "matlib/lights.h"
 
 #include "renderer/renderer.h"
 
+#include "renderer_ui.h"
+#include "matlib/global.h"
+
 #define WIDTH 800
-#define HEIGHT 600
+#define HEIGHT 500
 
 int main() {
     // initialize window
@@ -35,9 +38,9 @@ int main() {
     Model ground = load_model("./resources/ground.obj");
     ground.material.albedo = load_texture("./resources/grass.png");
 
-    int light_id  = renderer_create_light(&renderer, LIGHT_TYPE_SPOT, (vec3s){0,1,1}, RED, 4, GLMS_VEC3_ONE);
     int sun_id = renderer_create_light(&renderer, LIGHT_TYPE_DIRECTIONAL, (vec3s){10,10,0}, (Color){0.8f,0.75f,0.65f,1}, 1, (vec3s){-1,-1,0});
     Light* sun = &renderer.lights[sun_id];
+    int light_id  = renderer_create_light(&renderer, LIGHT_TYPE_SPOT, (vec3s){0,1,1}, RED, 4, GLMS_VEC3_ONE);
 
     Model man = load_model("./resources/CesiumMan.glb");
     man.material.albedo = load_texture("./resources/CesiumMan_img0.jpg");
@@ -50,8 +53,17 @@ int main() {
     renderer.ambient = (Color){0.7f, 0.69f, 0.63f, 1.0f};
     renderer.fog.color = (Color){0.7f, 0.6f, 0.66f, 1.0f};
     float time = 0;
-    //main loop
-    while (!window_should_close()) {
+
+    bool enable_ui = false;
+    RendererUIState ui;
+    init_ui_renderer(&ui);
+    struct nk_context* ctx = nk_sdl_init(global.window_context.window);
+
+    {struct nk_font_atlas *atlas;
+    nk_sdl_font_stash_begin(&atlas);
+    nk_sdl_font_stash_end();}
+
+    while (!window_should_close(ctx)) {
         double dt = get_frame_time();
         time += dt;
 
@@ -72,16 +84,27 @@ int main() {
 
         update_model_animation(&man, 0, dt, renderer.skinning_shader);
 
-        update_light_values(renderer.lights[light_id], renderer.skinning_shader);
-        update_light_values(renderer.lights[sun_id], renderer.skinning_shader);
+        if(enable_ui)
+            draw_ui_renderer(ctx, &renderer, &ui);
+        // 20 is q key
+        if(is_key_pressed_once(20))
+            enable_ui = !enable_ui;
+
+        renderer_update_lights(&renderer);
 
         renderer_shadow_pass(&renderer, models, 3);
         renderer_normal_pass(&renderer, models, 3);
+
+        nk_sdl_render(NK_ANTI_ALIASING_OFF, MAX_VERTEX_MEMORY, MAX_ELEMENT_MEMORY);
+        set_default_gl_state();
+
+        end_drawing();
     }
 
     free_model(&house);
     free_model(&man);
 
+    nk_sdl_shutdown();
     close_window();
 
     return 0;
