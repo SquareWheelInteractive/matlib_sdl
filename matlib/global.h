@@ -10,8 +10,8 @@ typedef struct {
     Wheel wheel;
     bool button_is_pressed;
     unsigned int button_idx;
-    float rel_x;
-    float rel_y;
+    float delta_x;
+    float delta_y;
 } Mouse;
 typedef struct{
     const bool* keys;
@@ -23,14 +23,14 @@ typedef struct Input{
     Mouse mouse;
     Keyboard keyboard;
 } Input;
-typedef struct Window_ctx{
+typedef struct WindowCtx{
     SDL_Window* window;
     bool has_resized;
     unsigned short screen_width;
     unsigned short screen_height;
-} Window_ctx;
+} WindowCtx;
 typedef struct Global{
-    Window_ctx window_context;
+    WindowCtx window_context;
     Input input;
 } Global;
 /* -------------- IMPORTANT: ---------------------

@@ -74,13 +74,13 @@ bool init_window(const char* app_name, int width, int height){
 }
 
 bool window_should_close(){
-     global.input.is_event_down = false;
+    global.input.is_event_down = false;
     global.input.is_event_up = false;
     global.window_context.has_resized = false;
     global.input.mouse.wheel.delta_x = 0;
     global.input.mouse.wheel.delta_y = 0;
-    global.input.mouse.rel_x = 0;
-    global.input.mouse.rel_y = 0;
+    global.input.mouse.delta_x = 0;
+    global.input.mouse.delta_y = 0;
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -114,8 +114,8 @@ bool window_should_close(){
                 global.input.mouse.button_idx = event.button.button;
                 break;
             case SDL_EVENT_MOUSE_MOTION:
-                global.input.mouse.rel_x = event.motion.xrel;
-                global.input.mouse.rel_y = event.motion.yrel;
+                global.input.mouse.delta_x = event.motion.xrel;
+                global.input.mouse.delta_y = event.motion.yrel;
                 break;
         }
     }
@@ -589,7 +589,7 @@ void update_camera_projection_matrix(Camera* camera, float aspect_ratio, float n
     }
 }
 
-static void resize_window(Camera* cam){
+static void handle_window_resize(Camera* cam){
     if(global.window_context.has_resized){
         glad_glViewport(0,0, global.window_context.screen_width, global.window_context.screen_height);
         float aspect_ratio = (float)global.window_context.screen_width / global.window_context.screen_height;
@@ -601,12 +601,11 @@ void begin_drawing(Camera* cam){
     glad_glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     update_camera_view_matrix(cam);
-    resize_window(cam);
+    handle_window_resize(cam);
 }
 void end_drawing(){
     SDL_GL_SwapWindow(global.window_context.window);
 }
-
 
 void set_camera_fov(Camera* camera, float fov){
     if(camera->type == CAMERA_ORTHO){
@@ -615,7 +614,6 @@ void set_camera_fov(Camera* camera, float fov){
     }
 
     camera->fov = fov;
-
     float aspect = (float)global.window_context.screen_width / global.window_context.screen_height;
     update_camera_projection_matrix(camera, aspect, 0.05f, 100.0f);
 }
@@ -691,9 +689,9 @@ void camera_move(Camera* camera, float sens, float move_speed, float dt){
         cursor_captured = !cursor_captured;
     }
 
-    vec2s mouse_delta;
     /* -- Getting mouse delta every frame to avoid camera snapping / jump when cursor is recaptured -- */
-    SDL_GetRelativeMouseState(&mouse_delta.x, &mouse_delta.y);
+    vec2s mouse_delta = (vec2s){global.input.mouse.delta_x,
+                          global.input.mouse.delta_y};
 
     if(!cursor_captured) return;
 
