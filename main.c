@@ -5,6 +5,8 @@
 #define WIDTH 800
 #define HEIGHT 600
 
+#include <stdio.h>
+
 int main() {
     // initialize window
     if(!init_window("pingo", WIDTH, HEIGHT)){
@@ -24,7 +26,7 @@ int main() {
     unsigned int skinning_shader= create_shader_program("./shaders/skinning_vert.glsl", "./shaders/lighting_frag.glsl");
 
     Camera cam = create_and_init_camera(CAMERA_PERSPECTIVE);
-    set_camera_fov(&cam, 65);
+    set_camera_fov(&cam, 80);
 
     Model house = load_model("./resources/medieval_house.obj");
     house.material.shader = light_shader;
@@ -33,10 +35,13 @@ int main() {
     Light light = create_light(LIGHT_TYPE_SPOT, (vec3s){3,1,0}, WHITE, 5, glms_vec3_zero(), 0);
     Light sun = create_light(LIGHT_TYPE_DIRECTIONAL, glms_vec3_zero(), (Color){0.8f,0.75f,0.65f,1}, 0, (vec3s){-1,-1,0}, 1);
     light.intensity = 4;
+    sun.intensity = 2;
 
     Model man = load_model("./resources/CesiumMan.glb");
     man.material.shader = skinning_shader;
     man.material.albedo = load_texture("./resources/CesiumMan_img0.jpg");
+
+    BoundingBox house_bb = get_model_bouding_box(house);
 
     //main loop
     while (!window_should_close()) {

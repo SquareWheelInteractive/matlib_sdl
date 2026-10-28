@@ -7,9 +7,9 @@
 #define DEG2RAD 0.0174533f
 #define RAD2DEG 57.295791f
 
-#define WHITE    (Color){0.92f, 0.92f, 0.92f, 1.0f}
+#define WHITE    (Color){1.0f, 1.0f, 1.0f, 1.0f}
 #define BLACK    (Color){0.0f, 0.0f, 0.0f, 1.0f}
-#define GRAY     (Color){0.25f, 0.25f, 0.25f, 1.0f}
+#define GRAY     (Color){0.3f, 0.3f, 0.3f, 1.0f}
 #define RED      (Color){1.0f, 0.0f, 0.0f, 1.0f}
 #define GREEN    (Color){0.0f, 1.0f, 0.0f, 1.0f}
 #define BLUE     (Color){0.0f, 0.0f, 1.0f, 1.0f}
@@ -409,6 +409,10 @@ typedef enum{
 } CameraProjectionType;
 
 typedef struct{
+    vec3s min, max;
+} BoundingBox;
+
+typedef struct{
     unsigned int vao;
     unsigned int vbo;
     unsigned int cubemap_tex;
@@ -423,7 +427,7 @@ typedef struct{
 } Color;
 typedef struct{
     vec3s translation;
-    versors rotation;
+    vec3s rotation;
     vec3s scale;
 } Transform;
 
@@ -468,7 +472,7 @@ typedef struct{
 } Material;
 
 typedef struct{
-    mat4s transform;
+    Transform transform;
 
     Material material;
 
@@ -501,3 +505,4 @@ void update_model_animation(Model* model, int anim_index, float dt);
 CubeMap load_cubemap(char** faces_path);
 void draw_cubemap(CubeMap cubemap, Camera camera);
 void set_camera_fov(Camera* camera, float fov);
+BoundingBox get_model_bouding_box(Model model);

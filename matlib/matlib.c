@@ -152,7 +152,13 @@ void draw_model(Model* model, Camera* cam, Color ambient){
     unsigned int ambient_loc  = glad_glGetUniformLocation(model->material.shader, "ambient");
     unsigned int view_pos_loc = glad_glGetUniformLocation(model->material.shader, "view_pos");
 
-    glad_glUniformMatrix4fv(model_loc, 1, GL_FALSE, (const float*)model->transform.raw);
+    mat4s T = glms_translate_make(model->transform.translation);
+    mat4s R = glms_quat_mat4(glms_euler_xyz_quat(model->transform.rotation));
+    mat4s S = glms_scale_make(model->transform.scale);
+    mat4s local_transform = glms_mat4_mul(T, glms_mat4_mul(R, S));
+
+
+    glad_glUniformMatrix4fv(model_loc, 1, GL_FALSE, (const float*)local_transform.raw);
     glad_glUniformMatrix4fv(view_loc , 1, GL_FALSE, (const float*)cam->view_matrix.raw);
     glad_glUniformMatrix4fv(proj_loc , 1, GL_FALSE, (const float*)cam->proj_matrix.raw);
     glad_glUniform4f(ambient_loc, ambient.r, ambient.g, ambient.b, ambient.a);
@@ -187,14 +193,14 @@ void free_model(Model* model){
 }
 
 /* - - - Mesh related - - - */
-Mesh* load_meshes_gltf(const char* filename, cgltf_data* data, unsigned int* mesh_cont){
+Mesh* load_meshes_gltf(const char* filename, cgltf_data* data, unsigned int* mesh_count){
     assert(data);
 
-    *mesh_cont = data->meshes[0].primitives_count;
+    *mesh_count = data->meshes[0].primitives_count;
     
-    Mesh* meshes_out = malloc(sizeof(Mesh) * *mesh_cont);
+    Mesh* meshes_out = malloc(sizeof(Mesh) * *mesh_count);
 
-    for (size_t i = 0 ; i < *mesh_cont; i++) {
+    for (size_t i = 0 ; i < *mesh_count; i++) {
         meshes_out[i] = load_mesh_gltf(filename, data, i);
     }
 
@@ -330,7 +336,9 @@ Mesh load_mesh_gltf(const char* filename, cgltf_data* data, unsigned int primiti
 
 Model load_model(const char* file_name){
     Model model_out = {0};
-    model_out.transform = glms_mat4_identity();
+    model_out.transform.translation = glms_vec3_zero();
+    model_out.transform.rotation = glms_vec3_zero();
+    model_out.transform.scale= glms_vec3_one();
     model_out.material.shader = 0;
     model_out.material.albedo = (Texture){0};
     model_out.skeleton = (Skeleton){0};
@@ -878,4 +886,29 @@ void draw_cubemap(CubeMap cubemap, Camera camera){
     glad_glBindVertexArray(cubemap.vao);
     glad_glDrawArrays(GL_TRIANGLES, 0, 36);
     glad_glDepthFunc(GL_LESS);    
+}
+
+BoundingBox get_model_bouding_box(Model model){
+    BoundingBox bb;
+    bb.min = (vec3s){FLT_MAX, FLT_MAX, FLT_MAX};
+    bb.max = (vec3s){-FLT_MAX, -FLT_MAX, -FLT_MAX};
+
+    unsigned int vertex_count = model.meshes[0].vertex_count;
+
+    for (unsigned int i = 0; i < vertex_count * 3; i += 3) {
+        vec3s curr_pos;
+        curr_pos.x = model.meshes[0].positions[i + 0];
+        curr_pos.y = model.meshes[0].positions[i + 1]; // Fixed: assigned to .y
+        curr_pos.z = model.meshes[0].positions[i + 2]; // Fixed: assigned to .z
+
+        if(curr_pos.x < bb.min.x) bb.min.x = curr_pos.x;
+        if(curr_pos.y < bb.min.y) bb.min.y = curr_pos.y;
+        if(curr_pos.z < bb.min.z) bb.min.z = curr_pos.z;
+
+        if(curr_pos.x > bb.max.x) bb.max.x = curr_pos.x;
+        if(curr_pos.y > bb.max.y) bb.max.y = curr_pos.y;
+        if(curr_pos.z > bb.max.z) bb.max.z = curr_pos.z;
+    }
+
+    return bb;
 }
