@@ -5,8 +5,6 @@
 #define WIDTH 800
 #define HEIGHT 600
 
-#include <stdio.h>
-
 int main() {
     // initialize window
     if(!init_window("pingo", WIDTH, HEIGHT)){

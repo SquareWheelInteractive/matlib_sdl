@@ -157,7 +157,6 @@ void draw_model(Model* model, Camera* cam, Color ambient){
     mat4s S = glms_scale_make(model->transform.scale);
     mat4s local_transform = glms_mat4_mul(T, glms_mat4_mul(R, S));
 
-
     glad_glUniformMatrix4fv(model_loc, 1, GL_FALSE, (const float*)local_transform.raw);
     glad_glUniformMatrix4fv(view_loc , 1, GL_FALSE, (const float*)cam->view_matrix.raw);
     glad_glUniformMatrix4fv(proj_loc , 1, GL_FALSE, (const float*)cam->proj_matrix.raw);
@@ -898,8 +897,8 @@ BoundingBox get_model_bouding_box(Model model){
     for (unsigned int i = 0; i < vertex_count * 3; i += 3) {
         vec3s curr_pos;
         curr_pos.x = model.meshes[0].positions[i + 0];
-        curr_pos.y = model.meshes[0].positions[i + 1]; // Fixed: assigned to .y
-        curr_pos.z = model.meshes[0].positions[i + 2]; // Fixed: assigned to .z
+        curr_pos.y = model.meshes[0].positions[i + 1];
+        curr_pos.z = model.meshes[0].positions[i + 2];
 
         if(curr_pos.x < bb.min.x) bb.min.x = curr_pos.x;
         if(curr_pos.y < bb.min.y) bb.min.y = curr_pos.y;
@@ -911,4 +910,13 @@ BoundingBox get_model_bouding_box(Model model){
     }
 
     return bb;
+}
+
+char* format_text(const char* fmt, ...) {
+    static char buffer[128];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+    return buffer;
 }

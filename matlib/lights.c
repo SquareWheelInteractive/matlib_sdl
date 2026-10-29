@@ -2,22 +2,10 @@
 #include "matlib/lights.h"
 #include <stdarg.h>
 
-/* - - - - - - - - - - - - - - - - - - - - - - - - - -
-    TODO: move this function to somewhere more appropriate
-   - - - - - - - - - - - - - - - - - - - - - - - - - -        */
-static char* format_text(const char* fmt, ...) {
-    static char buffer[128];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args);
-    return buffer;
-}
-
 Light create_light(int type, vec3s position, Color color, float range, vec3s direciton, int id){
     Light light = {0};
     light.id        = id;
-    light.enabled   = 1;
+    light.enabled   = true;
     light.type      = type;
     light.direction = direciton;
     light.position  = position;

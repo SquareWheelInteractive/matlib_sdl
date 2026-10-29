@@ -6,6 +6,7 @@
 
 #define DEG2RAD 0.0174533f
 #define RAD2DEG 57.295791f
+#define PI 3.141592f
 
 #define WHITE    (Color){1.0f, 1.0f, 1.0f, 1.0f}
 #define BLACK    (Color){0.0f, 0.0f, 0.0f, 1.0f}
@@ -506,3 +507,4 @@ CubeMap load_cubemap(char** faces_path);
 void draw_cubemap(CubeMap cubemap, Camera camera);
 void set_camera_fov(Camera* camera, float fov);
 BoundingBox get_model_bouding_box(Model model);
+char* format_text(const char* fmt, ...);
