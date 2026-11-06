@@ -641,7 +641,7 @@ Camera create_and_init_camera(CameraProjectionType type){
 
     return cam;
 }
-Texture load_texture(const char* path){
+Texture load_texture(const char* path, int filter){
     Texture texture = {0};
     glad_glGenTextures(1, &texture.id);
     glad_glBindTexture(GL_TEXTURE_2D, texture.id);
@@ -652,8 +652,8 @@ Texture load_texture(const char* path){
         switch (texture.channels) {
             case 3:
                 glad_glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-                glad_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-                glad_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                glad_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+                glad_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
                 glad_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texture.width, texture.height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
                 glad_glGenerateMipmap(GL_TEXTURE_2D);
                 break;

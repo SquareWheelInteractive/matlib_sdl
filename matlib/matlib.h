@@ -19,6 +19,9 @@
 #define CYAN     (Color){0.0f, 1.0f, 1.0f, 1.0f}
 #define SKY_BLUE (Color){0.45f, 0.65f, 0.86f, 1.0f}
 
+#define TEX_FILTER_NEAREST 0x2600
+#define TEX_FILTER_LINEAR  0x2601
+
 typedef enum{
     KEY_CODE_UNKNOWN = 0,
 
@@ -494,7 +497,7 @@ void begin_drawing(Camera* cam);
 void end_drawing();
 void free_mesh(Mesh* mesh);
 Camera create_and_init_camera(CameraProjectionType type);
-Texture load_texture(const char* path);
+Texture load_texture(const char* path, int filter);
 void camera_move(Camera* camera, float sens, float move_speed, float dt);
 float get_frame_time();
 bool is_key_pressed_once(KeyCode scan_code);

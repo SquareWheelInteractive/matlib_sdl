@@ -28,7 +28,7 @@ int main() {
 
     Model house = load_model("./resources/medieval_house.obj");
     house.material.shader = light_shader;
-    house.material.albedo = load_texture("./resources/houseTexture.png");
+    house.material.albedo = load_texture("./resources/houseTexture.png", TEX_FILTER_NEAREST);
 
     Light light = create_light(LIGHT_TYPE_SPOT, (vec3s){3,1,0}, WHITE, 5, glms_vec3_zero(), 0);
     Light sun = create_light(LIGHT_TYPE_DIRECTIONAL, glms_vec3_zero(), (Color){0.8f,0.75f,0.65f,1}, 0, (vec3s){-1,-1,0}, 1);
@@ -37,9 +37,7 @@ int main() {
 
     Model man = load_model("./resources/CesiumMan.glb");
     man.material.shader = skinning_shader;
-    man.material.albedo = load_texture("./resources/CesiumMan_img0.jpg");
-
-    BoundingBox house_bb = get_model_bouding_box(house);
+    man.material.albedo = load_texture("./resources/CesiumMan_img0.jpg", TEX_FILTER_LINEAR);
 
     //main loop
     while (!window_should_close()) {
