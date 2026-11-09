@@ -501,6 +501,7 @@ Texture load_texture(const char* path, int filter);
 void camera_move(Camera* camera, float sens, float move_speed, float dt);
 float get_frame_time();
 bool is_key_pressed_once(KeyCode scan_code);
+bool is_key_pressed(KeyCode scan_code);
 Mesh load_mesh_obj(const char* path);
 Mesh load_mesh_gltf(const char* filename, cgltf_data* data, unsigned int primitive_index);
 Model load_model(const char* file_name);

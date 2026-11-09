@@ -502,6 +502,9 @@ bool is_key_pressed_once(KeyCode scan_code){
    
     return false;
 }
+bool is_key_pressed(KeyCode scan_code){
+    return global.input.keyboard.keys[(SDL_Scancode)scan_code];
+}
 
 char* get_file_content(const char* fileName){
     FILE *fp;
@@ -719,16 +722,15 @@ void camera_move(Camera* camera, float sens, float move_speed, float dt){
     vec3s right = glms_vec3_normalize(glms_vec3_cross(forward, camera->up));
 
     vec3s dir = {0};
-    const bool* keys = SDL_GetKeyboardState(NULL);
-    if (keys[SDL_SCANCODE_W])
+    if (is_key_pressed(KEY_CODE_W))
         dir = glms_vec3_add(dir, forward);
-    if (keys[SDL_SCANCODE_S])
+    if (is_key_pressed(KEY_CODE_S))
         dir = glms_vec3_sub(dir, forward);
-    if (keys[SDL_SCANCODE_D])
+    if (is_key_pressed(KEY_CODE_D))
         dir = glms_vec3_add(dir, right);
-    if (keys[SDL_SCANCODE_A])
+    if (is_key_pressed(KEY_CODE_A))
         dir = glms_vec3_sub(dir, right);
-    if (keys[SDL_SCANCODE_SPACE])
+    if (is_key_pressed(KEY_CODE_SPACE))
         dir = glms_vec3_add(dir, camera->up);
 
     dir = glms_vec3_normalize(dir);

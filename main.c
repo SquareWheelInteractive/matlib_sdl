@@ -7,7 +7,7 @@
 
 int main() {
     // initialize window
-    if(!init_window("pingo", WIDTH, HEIGHT)){
+    if(!init_window("demo", WIDTH, HEIGHT)){
         printf("failed to init sdl window\n");
     }
     char* sky_box_textures[6] = {
